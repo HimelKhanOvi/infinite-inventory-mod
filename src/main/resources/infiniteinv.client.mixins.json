@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "com.robsterad.infiniteinv.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "HandledScreenMixin",
+    "ScreenMixin",
+    "DrawContextAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

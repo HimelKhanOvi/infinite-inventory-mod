@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "com.robsterad.infiniteinv.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+      "com.robsterad.infiniteinv.mixin.ExampleClientMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

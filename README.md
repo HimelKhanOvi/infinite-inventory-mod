@@ -1,5 +1,9 @@
-# Infinite Inventory Mod
+# Infinite Inventory
 
-This mod provides a secondary inventory that allows the storing of any item in any quantity, while leaving the vanilla inventory intact. Allows sorting by most recently transferred, quantity and alphabetically. Works with Shulker Box content viewing mods.
+## Setup
 
-**[Download the latest version here!](https://github.com/robsterad/infinite-inventory-mod/releases/)**
+For setup instructions, please see the [Fabric Documentation page](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up) related to the IDE that you are using.
+
+## License
+
+This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.

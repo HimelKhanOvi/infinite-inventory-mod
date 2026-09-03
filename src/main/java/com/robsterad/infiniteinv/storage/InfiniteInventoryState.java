@@ -19,6 +19,17 @@ public class InfiniteInventoryState extends SavedData {
 
     public HashMap<UUID, PlayerInfiniteInventory> players = new HashMap<>();
     public HashMap<UUID, Map<ItemKey, Long>> itemTimestamps = new HashMap<>();
+    public HashMap<UUID, UiPrefs> uiPrefs = new HashMap<>();
+
+    public record UiPrefs(boolean panelVisible, String sortMode, boolean showTooltips) {
+        public static final UiPrefs DEFAULT = new UiPrefs(true, "RECENT", false);
+    }
+
+    private static final Codec<UiPrefs> UI_PREFS_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.BOOL.fieldOf("panelVisible").forGetter(UiPrefs::panelVisible),
+            Codec.STRING.fieldOf("sortMode").forGetter(UiPrefs::sortMode),
+            Codec.BOOL.fieldOf("showTooltips").forGetter(UiPrefs::showTooltips)
+    ).apply(instance, UiPrefs::new));
 
     private record SavedItem(ItemStack stack, long count, long timestamp) {}
 
@@ -57,13 +68,15 @@ public class InfiniteInventoryState extends SavedData {
                 Map<UUID, PlayerStateWrapper> map = new HashMap<>();
                 state.players.forEach((uuid, inv) -> map.put(uuid, new PlayerStateWrapper(inv, state.itemTimestamps.getOrDefault(uuid, new HashMap<>()))));
                 return map;
-            })
-    ).apply(instance, map -> {
+            }),
+            Codec.unboundedMap(UUIDUtil.STRING_CODEC, UI_PREFS_CODEC).optionalFieldOf("uiPrefs", Map.of()).forGetter(state -> state.uiPrefs)
+    ).apply(instance, (map, prefs) -> {
         InfiniteInventoryState state = new InfiniteInventoryState();
         map.forEach((uuid, wrapper) -> {
             state.players.put(uuid, wrapper.inv);
             state.itemTimestamps.put(uuid, wrapper.times);
         });
+        state.uiPrefs.putAll(prefs);
         return state;
     }));
 
@@ -86,6 +99,17 @@ public class InfiniteInventoryState extends SavedData {
     public static void updateTimestamp(ServerPlayer player, ItemKey key) {
         InfiniteInventoryState state = getServerState(player.level().getServer());
         state.itemTimestamps.computeIfAbsent(player.getUUID(), k -> new HashMap<>()).put(key, System.currentTimeMillis());
+        state.setDirty();
+    }
+
+    public static UiPrefs getUiPrefs(ServerPlayer player) {
+        InfiniteInventoryState state = getServerState(player.level().getServer());
+        return state.uiPrefs.getOrDefault(player.getUUID(), UiPrefs.DEFAULT);
+    }
+
+    public static void setUiPrefs(ServerPlayer player, UiPrefs prefs) {
+        InfiniteInventoryState state = getServerState(player.level().getServer());
+        state.uiPrefs.put(player.getUUID(), prefs);
         state.setDirty();
     }
 }

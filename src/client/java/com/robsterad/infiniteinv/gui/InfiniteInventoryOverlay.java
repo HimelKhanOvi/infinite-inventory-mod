@@ -1,8 +1,10 @@
 package com.robsterad.infiniteinv.gui;
 
+import com.robsterad.infiniteinv.config.InfiniteInvConfig;
 import com.robsterad.infiniteinv.mixin.AbstractContainerScreenAccessor;
 import com.robsterad.infiniteinv.network.ExtractItemPayload;
 import com.robsterad.infiniteinv.network.SyncInventoryPayload;
+import com.robsterad.infiniteinv.network.UpdateUiPrefsPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
@@ -50,8 +52,31 @@ public class InfiniteInventoryOverlay {
     private static int currentPage  = 0;
     private static int itemsPerPage = 1;
     private static boolean showTooltips = false;
+    private static double lastMouseX = -1;
+    private static double lastMouseY = -1;
 
     private static final int COLLAPSE_W = 20;
+
+    public static void applyUiPrefs(boolean visible, String sortModeName, boolean tooltips) {
+        panelVisible = visible;
+        showTooltips = tooltips;
+        try {
+            currentSort = SortMode.valueOf(sortModeName);
+        } catch (IllegalArgumentException e) {
+            currentSort = SortMode.RECENT;
+        }
+        currentPage = 0;
+        if (collapseBtn != null) collapseBtn.setMessage(Component.literal(panelVisible ? "◀" : "▶"));
+        if (sortButton != null) sortButton.setMessage(Component.literal(currentSort.shortLabel));
+    }
+
+    private static void sendUiPrefsUpdate() {
+        ClientPlayNetworking.send(new UpdateUiPrefsPayload(panelVisible, currentSort.name(), showTooltips));
+    }
+
+    public static boolean isSearchFocused() {
+        return searchBox != null && searchBox.isFocused();
+    }
 
     public static boolean onCharTyped(CharacterEvent event) {
         if (searchBox != null && searchBox.isFocused()) {
@@ -76,7 +101,7 @@ public class InfiniteInventoryOverlay {
 
             int bottomY = scaledHeight - 25;
             int sortW = 20;
-            int toolW = 36;
+            int toolW = 20;
 
             int searchW = panelWidth - sortW - toolW - COLLAPSE_W - 6;
 
@@ -85,7 +110,7 @@ public class InfiniteInventoryOverlay {
 
             sortButton  = Button.builder(Component.literal(currentSort.shortLabel), b -> {})
                     .pos(startX + searchW + 2, bottomY).size(sortW, 14).build();
-            tooltipBtn  = Button.builder(Component.literal(showTooltips ? "T:ON" : "T:OFF"), b -> {})
+            tooltipBtn  = Button.builder(Component.literal("T"), b -> {})
                     .pos(startX + searchW + sortW + 4, bottomY).size(toolW, 14).build();
             collapseBtn = Button.builder(Component.literal(panelVisible ? "◀" : "▶"), b -> {})
                     .pos(startX + searchW + sortW + toolW + 6, bottomY).size(COLLAPSE_W, 14).build();
@@ -100,54 +125,56 @@ public class InfiniteInventoryOverlay {
                 double mx = event.x();
                 double my = event.y();
                 int btn = event.button();
-                if (btn != 0) return true;
 
-                if (collapseBtn.isMouseOver(mx, my)) {
+                if (btn == 0 && collapseBtn.isMouseOver(mx, my)) {
                     panelVisible = !panelVisible;
                     collapseBtn.setMessage(Component.literal(panelVisible ? "◀" : "▶"));
+                    sendUiPrefsUpdate();
                     return false;
                 }
 
                 if (!panelVisible) return true;
 
-                if (searchBox.isMouseOver(mx, my)) {
-                    searchBox.setFocused(true);
-                    searchBox.mouseClicked(event, false);
-                    return false;
-                }
-                searchBox.setFocused(false);
-
-                if (sortButton.isMouseOver(mx, my)) {
-                    currentSort = SortMode.values()[(currentSort.ordinal() + 1) % SortMode.values().length];
-                    sortButton.setMessage(Component.literal(currentSort.shortLabel));
-                    currentPage = 0;
-                    return false;
-                }
-
-                if (tooltipBtn.isMouseOver(mx, my)) {
-                    showTooltips = !showTooltips;
-                    tooltipBtn.setMessage(Component.literal(showTooltips ? "T:ON" : "T:OFF"));
-                    return false;
-                }
-
-                if (prevPageBtn.isMouseOver(mx, my)) {
-                    if (currentPage > 0) currentPage--;
-                    return false;
-                }
-                if (nextPageBtn.isMouseOver(mx, my)) {
-                    currentPage++;
-                    return false;
-                }
-
-                List<SyncInventoryPayload.NetworkItemData> list = getProcessedItems(panelWidth, scaledHeight);
-                int columns = Math.max(1, (panelWidth - 8) / 18);
-                for (int i = 0; i < list.size(); i++) {
-                    int x = startX + 4 + (i % columns) * 18;
-                    int y = 28 + (i / columns) * 18;
-                    if (mx >= x && mx < x + 18 && my >= y && my < y + 18) {
-                        ClientPlayNetworking.send(new ExtractItemPayload(list.get(i).stack()));
+                if (btn == 0) {
+                    if (searchBox.isMouseOver(mx, my)) {
+                        searchBox.setFocused(true);
+                        searchBox.mouseClicked(event, false);
                         return false;
                     }
+                    searchBox.setFocused(false);
+
+                    if (sortButton.isMouseOver(mx, my)) {
+                        currentSort = SortMode.values()[(currentSort.ordinal() + 1) % SortMode.values().length];
+                        sortButton.setMessage(Component.literal(currentSort.shortLabel));
+                        currentPage = 0;
+                        sendUiPrefsUpdate();
+                        return false;
+                    }
+
+                    if (tooltipBtn.isMouseOver(mx, my)) {
+                        showTooltips = !showTooltips;
+                        sendUiPrefsUpdate();
+                        return false;
+                    }
+
+                    if (prevPageBtn.isMouseOver(mx, my)) {
+                        if (currentPage > 0) currentPage--;
+                        return false;
+                    }
+                    if (nextPageBtn.isMouseOver(mx, my)) {
+                        currentPage++;
+                        return false;
+                    }
+                }
+
+                ItemStack hovered = findHoveredItemStack(mx, my, startX, panelWidth, scaledHeight);
+                if (hovered != null) {
+                    if (InfiniteInvConfig.INSTANCE.takeStack.matchesMouse(btn)) {
+                        ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
+                    } else if (InfiniteInvConfig.INSTANCE.takeOne.matchesMouse(btn)) {
+                        ClientPlayNetworking.send(new ExtractItemPayload(hovered, true));
+                    }
+                    return false;
                 }
 
                 return true;
@@ -161,12 +188,26 @@ public class InfiniteInventoryOverlay {
                         searchBox.keyPressed(event);
                         return false;
                     }
+                    return true;
+                }
+
+                ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, startX, panelWidth, scaledHeight);
+                if (hovered != null) {
+                    if (InfiniteInvConfig.INSTANCE.takeStack.matchesKey(event.key(), event.scancode())) {
+                        ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
+                        return false;
+                    } else if (InfiniteInvConfig.INSTANCE.takeOne.matchesKey(event.key(), event.scancode())) {
+                        ClientPlayNetworking.send(new ExtractItemPayload(hovered, true));
+                        return false;
+                    }
                 }
                 return true;
             });
 
             // RENDER
             ScreenEvents.afterExtract(screen).register((s, ctx, mx, my, delta) -> {
+                lastMouseX = mx;
+                lastMouseY = my;
 
                 collapseBtn.extractRenderState(ctx, mx, my, delta);
 
@@ -177,6 +218,15 @@ public class InfiniteInventoryOverlay {
                 searchBox.extractRenderState(ctx, mx, my, delta);
                 sortButton.extractRenderState(ctx, mx, my, delta);
                 tooltipBtn.extractRenderState(ctx, mx, my, delta);
+                if (showTooltips) {
+                    int tx = tooltipBtn.getX(), ty = tooltipBtn.getY();
+                    int tw = tooltipBtn.getWidth(), th = tooltipBtn.getHeight();
+                    int outline = 0xFFFFFFFF;
+                    ctx.fill(tx, ty, tx + tw, ty + 1, outline);
+                    ctx.fill(tx, ty + th - 1, tx + tw, ty + th, outline);
+                    ctx.fill(tx, ty, tx + 1, ty + th, outline);
+                    ctx.fill(tx + tw - 1, ty, tx + tw, ty + th, outline);
+                }
                 prevPageBtn.extractRenderState(ctx, mx, my, delta);
                 nextPageBtn.extractRenderState(ctx, mx, my, delta);
 
@@ -235,6 +285,20 @@ public class InfiniteInventoryOverlay {
                 }
             });
         });
+    }
+
+    private static ItemStack findHoveredItemStack(double mx, double my, int startX, int panelWidth, int scaledHeight) {
+        if (!panelVisible) return null;
+        List<SyncInventoryPayload.NetworkItemData> list = getProcessedItems(panelWidth, scaledHeight);
+        int columns = Math.max(1, (panelWidth - 8) / 18);
+        for (int i = 0; i < list.size(); i++) {
+            int x = startX + 4 + (i % columns) * 18;
+            int y = 28 + (i / columns) * 18;
+            if (mx >= x && mx < x + 18 && my >= y && my < y + 18) {
+                return list.get(i).stack();
+            }
+        }
+        return null;
     }
 
     private static List<SyncInventoryPayload.NetworkItemData> getSortedFilteredAll() {

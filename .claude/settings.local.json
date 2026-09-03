@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:modrinth.com)",
+      "WebFetch(domain:maven.terraformersmc.com)",
+      "WebFetch(domain:maven.shedaniel.me)"
+    ]
+  }
+}

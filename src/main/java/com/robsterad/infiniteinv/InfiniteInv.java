@@ -5,6 +5,8 @@ import com.robsterad.infiniteinv.inventory.PlayerInfiniteInventory;
 import com.robsterad.infiniteinv.network.ExtractItemPayload;
 import com.robsterad.infiniteinv.network.InsertItemPayload;
 import com.robsterad.infiniteinv.network.SyncInventoryPayload;
+import com.robsterad.infiniteinv.network.SyncUiPrefsPayload;
+import com.robsterad.infiniteinv.network.UpdateUiPrefsPayload;
 import com.robsterad.infiniteinv.storage.InfiniteInventoryState;
 import com.robsterad.infiniteinv.storage.LegacyDataMigration;
 import net.fabricmc.api.ModInitializer;
@@ -27,8 +29,10 @@ public class InfiniteInv implements ModInitializer {
     @Override
     public void onInitialize() {
         PayloadTypeRegistry.clientboundPlay().register(SyncInventoryPayload.ID, SyncInventoryPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SyncUiPrefsPayload.ID, SyncUiPrefsPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(ExtractItemPayload.ID, ExtractItemPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(InsertItemPayload.ID, InsertItemPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(UpdateUiPrefsPayload.ID, UpdateUiPrefsPayload.CODEC);
 
         ServerLifecycleEvents.SERVER_STARTED.register(LegacyDataMigration::migrate);
 
@@ -44,13 +48,26 @@ public class InfiniteInv implements ModInitializer {
 
                     if (slot.hasItem()) {
                         ItemStack stack = slot.getItem();
+                        ItemKey key = ItemKey.of(stack);
                         try {
                             PlayerInfiniteInventory inv = InfiniteInventoryState.getPlayerState(player);
-                            inv.addStack(stack);
-                            slot.set(ItemStack.EMPTY);
+
+                            if (payload.single()) {
+                                ItemStack toInsert = stack.copy();
+                                toInsert.setCount(1);
+                                stack.shrink(1);
+                                if (stack.isEmpty()) {
+                                    slot.set(ItemStack.EMPTY);
+                                } else {
+                                    slot.setChanged();
+                                }
+                                inv.addStack(toInsert);
+                            } else {
+                                inv.addStack(stack);
+                                slot.set(ItemStack.EMPTY);
+                            }
 
                             // save timestamp for "recent" sort
-                            ItemKey key = ItemKey.of(stack);
                             if (key != null) {
                                 InfiniteInventoryState.updateTimestamp(player, key);
                             }
@@ -74,7 +91,7 @@ public class InfiniteInv implements ModInitializer {
                 ItemKey key = ItemKey.of(requestedStack);
 
                 if (key != null && inv.getAllItems().containsKey(key)) {
-                    int maxTake = requestedStack.getMaxStackSize();
+                    int maxTake = payload.single() ? 1 : requestedStack.getMaxStackSize();
                     ItemStack extracted = inv.removeStack(key, maxTake);
 
                     if (!extracted.isEmpty()) {
@@ -89,8 +106,21 @@ public class InfiniteInv implements ModInitializer {
             });
         });
 
+        // UI PREFS (collapse / sort / tooltips toggle)
+        ServerPlayNetworking.registerGlobalReceiver(UpdateUiPrefsPayload.ID, (payload, context) -> {
+            context.server().execute(() -> {
+                ServerPlayer player = context.player();
+                InfiniteInventoryState.setUiPrefs(player, new InfiniteInventoryState.UiPrefs(
+                        payload.panelVisible(), payload.sortMode(), payload.showTooltips()));
+            });
+        });
+
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             syncInventoryToClient(handler.player);
+
+            InfiniteInventoryState.UiPrefs prefs = InfiniteInventoryState.getUiPrefs(handler.player);
+            ServerPlayNetworking.send(handler.player, new SyncUiPrefsPayload(
+                    prefs.panelVisible(), prefs.sortMode(), prefs.showTooltips()));
         });
     }
 

@@ -16,6 +16,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import org.lwjgl.glfw.GLFW;
 
@@ -356,7 +357,9 @@ public class InfiniteInventoryOverlay {
     private static boolean enchantmentMatches(ItemEnchantments enchants, String q) {
         if (enchants == null) return false;
         for (var entry : enchants.entrySet()) {
-            if (entry.getKey().value().description().getString().toLowerCase(Locale.ROOT).contains(q))
+            // full "Name Level" text (e.g. "Sharpness V"), same as the vanilla tooltip line,
+            // so searching "sharpness v" or just "v" matches like it does in creative search
+            if (Enchantment.getFullname(entry.getKey(), entry.getIntValue()).getString().toLowerCase(Locale.ROOT).contains(q))
                 return true;
         }
         return false;

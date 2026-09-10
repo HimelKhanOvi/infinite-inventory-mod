@@ -204,7 +204,7 @@ public class InfiniteInventoryOverlay {
                 return true;
             });
 
-            ScreenEvents.afterExtract(screen).register((s, ctx, mx, my, delta) -> {
+            ScreenEvents.afterRender(screen).register((s, ctx, mx, my, delta) -> {
                 lastMouseX = mx;
                 lastMouseY = my;
 
@@ -281,7 +281,6 @@ public class InfiniteInventoryOverlay {
 
                 if (hoveredItem != null) {
                     ctx.setTooltipForNextFrame(client.font, hoveredItem, mx, my);
-                    ctx.extractDeferredElements(mx, my, delta);
                 }
             });
         });

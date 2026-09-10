@@ -28,11 +28,12 @@ public class InfiniteInv implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        PayloadTypeRegistry.clientboundPlay().register(SyncInventoryPayload.ID, SyncInventoryPayload.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(SyncUiPrefsPayload.ID, SyncUiPrefsPayload.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(ExtractItemPayload.ID, ExtractItemPayload.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(InsertItemPayload.ID, InsertItemPayload.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(UpdateUiPrefsPayload.ID, UpdateUiPrefsPayload.CODEC);
+        // Updated payload registration methods for Fabric Networking API
+        PayloadTypeRegistry.playS2C().register(SyncInventoryPayload.ID, SyncInventoryPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(SyncUiPrefsPayload.ID, SyncUiPrefsPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(ExtractItemPayload.ID, ExtractItemPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(InsertItemPayload.ID, InsertItemPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(UpdateUiPrefsPayload.ID, UpdateUiPrefsPayload.CODEC);
 
         ServerLifecycleEvents.SERVER_STARTED.register(LegacyDataMigration::migrate);
 

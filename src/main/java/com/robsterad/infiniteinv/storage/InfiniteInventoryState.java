@@ -5,7 +5,6 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.robsterad.infiniteinv.inventory.ItemKey;
 import com.robsterad.infiniteinv.inventory.PlayerInfiniteInventory;
 import net.minecraft.core.UUIDUtil;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.datafix.DataFixTypes;
@@ -81,7 +80,7 @@ public class InfiniteInventoryState extends SavedData {
     }));
 
     public static final SavedDataType<InfiniteInventoryState> TYPE = new SavedDataType<>(
-            Identifier.fromNamespaceAndPath("infinite-inventory", "infinite_inventory"),
+            "infinite_inventory",
             InfiniteInventoryState::new,
             CODEC,
             DataFixTypes.SAVED_DATA_COMMAND_STORAGE

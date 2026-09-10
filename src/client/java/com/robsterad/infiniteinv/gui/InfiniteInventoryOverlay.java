@@ -208,15 +208,16 @@ public class InfiniteInventoryOverlay {
                 lastMouseX = mx;
                 lastMouseY = my;
 
-                collapseBtn.extractRenderState(ctx, mx, my, delta);
+                collapseBtn.render(ctx, (int)mx, (int)my, delta);
 
                 if (!panelVisible) return;
 
                 ctx.fill(startX, 8, startX + panelWidth, scaledHeight - 8, 0x88222222);
 
-                searchBox.extractRenderState(ctx, mx, my, delta);
-                sortButton.extractRenderState(ctx, mx, my, delta);
-                tooltipBtn.extractRenderState(ctx, mx, my, delta);
+                searchBox.render(ctx, (int)mx, (int)my, delta);
+                sortButton.render(ctx, (int)mx, (int)my, delta);
+                tooltipBtn.render(ctx, (int)mx, (int)my, delta);
+                
                 if (showTooltips) {
                     int tx = tooltipBtn.getX(), ty = tooltipBtn.getY();
                     int tw = tooltipBtn.getWidth(), th = tooltipBtn.getHeight();
@@ -226,8 +227,9 @@ public class InfiniteInventoryOverlay {
                     ctx.fill(tx, ty, tx + 1, ty + th, outline);
                     ctx.fill(tx + tw - 1, ty, tx + tw, ty + th, outline);
                 }
-                prevPageBtn.extractRenderState(ctx, mx, my, delta);
-                nextPageBtn.extractRenderState(ctx, mx, my, delta);
+                
+                prevPageBtn.render(ctx, (int)mx, (int)my, delta);
+                nextPageBtn.render(ctx, (int)mx, (int)my, delta);
 
                 List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
                 int columns    = Math.max(1, (panelWidth - 8) / 18);

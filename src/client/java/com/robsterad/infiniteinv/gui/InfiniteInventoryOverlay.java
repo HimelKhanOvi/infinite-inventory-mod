@@ -9,7 +9,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -206,87 +208,101 @@ public class InfiniteInventoryOverlay {
                 }
                 return true;
             });
-
-            ScreenEvents.afterRender(screen).register((s, ctx, mx, my, delta) -> {
-                lastMouseX = mx;
-                lastMouseY = my;
-
-                collapseBtn.render(ctx, (int)mx, (int)my, delta);
-
-                if (!panelVisible) return;
-
-                ctx.fill(startX, 8, startX + panelWidth, scaledHeight - 8, 0x88222222);
-
-                searchBox.render(ctx, (int)mx, (int)my, delta);
-                sortButton.render(ctx, (int)mx, (int)my, delta);
-                tooltipBtn.render(ctx, (int)mx, (int)my, delta);
-                
-                if (showTooltips) {
-                    int tx = tooltipBtn.getX(), ty = tooltipBtn.getY();
-                    int tw = tooltipBtn.getWidth(), th = tooltipBtn.getHeight();
-                    int outline = 0xFFFFFFFF;
-                    ctx.fill(tx, ty, tx + tw, ty + 1, outline);
-                    ctx.fill(tx, ty + th - 1, tx + tw, ty + th, outline);
-                    ctx.fill(tx, ty, tx + 1, ty + th, outline);
-                    ctx.fill(tx + tw - 1, ty, tx + tw, ty + th, outline);
-                }
-                
-                prevPageBtn.render(ctx, (int)mx, (int)my, delta);
-                nextPageBtn.render(ctx, (int)mx, (int)my, delta);
-
-                List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
-                int columns    = Math.max(1, (panelWidth - 8) / 18);
-                int rows       = (scaledHeight - 65) / 18;
-                itemsPerPage   = Math.max(1, columns * rows);
-                int totalPages = Math.max(1, (int) Math.ceil((double) all.size() / itemsPerPage));
-                currentPage    = Math.min(currentPage, Math.max(0, totalPages - 1));
-
-                ctx.centeredText(client.font,
-                        (currentPage + 1) + "/" + totalPages,
-                        startX + panelWidth / 2, 13, -1);
-
-                List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems(panelWidth, scaledHeight);
-                ItemStack hoveredItem = null;
-
-                for (int i = 0; i < page.size(); i++) {
-                    int ix = startX + 4 + (i % columns) * 18;
-                    int iy = 28 + (i / columns) * 18;
-
-                    ctx.item(page.get(i).stack(), ix, iy);
-
-                    if (page.get(i).count() > 0) {
-                        String countText = formatCount(page.get(i).count());
-                        float scale = 0.65f;
-                        int textW   = client.font.width(countText);
-                        int textH   = client.font.lineHeight;
-
-                        float anchorX = ix + 16f;
-                        float anchorY = iy + 16f;
-
-                        ctx.pose().pushMatrix();
-                        ctx.pose().translate(anchorX, anchorY);
-                        ctx.pose().scale(scale, scale);
-                        ctx.text(client.font, countText, -textW, -textH, -1);
-                        ctx.pose().popMatrix();
-                    }
-
-                    if (showTooltips && mx >= ix && mx < ix + 18 && my >= iy && my < iy + 18) {
-                        hoveredItem = page.get(i).stack();
-                    }
-                }
-
-                if (sortButton.isMouseOver(mx, my))
-                    ctx.setTooltipForNextFrame(client.font, Component.literal("Sort: " + currentSort.hoverName), mx, my);
-                if (tooltipBtn.isMouseOver(mx, my))
-                    ctx.setTooltipForNextFrame(client.font, Component.literal("Item Tooltips"), mx, my);
-                if (collapseBtn.isMouseOver(mx, my))
-                    ctx.setTooltipForNextFrame(client.font, Component.literal(panelVisible ? "Hide panel" : "Show panel"), mx, my);
-
-                if (hoveredItem != null) {
-                    ctx.setTooltipForNextFrame(client.font, hoveredItem, mx, my);
-                }
-            });
         });
+    }
+
+    public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta) {
+        Minecraft client = Minecraft.getInstance();
+        int scaledWidth = client.getWindow().getGuiScaledWidth();
+        int scaledHeight = client.getWindow().getGuiScaledHeight();
+
+        AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
+        int startX = acc.getLeftPos() + acc.getImageWidth() + 4;
+        int panelWidth = Math.min(160, scaledWidth - startX - 10);
+        if (panelWidth < 60) {
+            startX = scaledWidth - 164;
+            panelWidth = 160;
+        }
+
+        lastMouseX = mx;
+        lastMouseY = my;
+
+        if (collapseBtn != null) {
+            collapseBtn.render(ctx, mx, my, delta);
+        }
+
+        if (!panelVisible) return;
+
+        ctx.fill(startX, 8, startX + panelWidth, scaledHeight - 8, 0x88222222);
+
+        if (searchBox != null) searchBox.render(ctx, mx, my, delta);
+        if (sortButton != null) sortButton.render(ctx, mx, my, delta);
+        if (tooltipBtn != null) tooltipBtn.render(ctx, mx, my, delta);
+        
+        if (showTooltips && tooltipBtn != null) {
+            int tx = tooltipBtn.getX(), ty = tooltipBtn.getY();
+            int tw = tooltipBtn.getWidth(), th = tooltipBtn.getHeight();
+            int outline = 0xFFFFFFFF;
+            ctx.fill(tx, ty, tx + tw, ty + 1, outline);
+            ctx.fill(tx, ty + th - 1, tx + tw, ty + th, outline);
+            ctx.fill(tx, ty, tx + 1, ty + th, outline);
+            ctx.fill(tx + tw - 1, ty, tx + tw, ty + th, outline);
+        }
+        
+        if (prevPageBtn != null) prevPageBtn.render(ctx, mx, my, delta);
+        if (nextPageBtn != null) nextPageBtn.render(ctx, mx, my, delta);
+
+        List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
+        int columns    = Math.max(1, (panelWidth - 8) / 18);
+        int rows       = (scaledHeight - 65) / 18;
+        itemsPerPage   = Math.max(1, columns * rows);
+        int totalPages = Math.max(1, (int) Math.ceil((double) all.size() / itemsPerPage));
+        currentPage    = Math.min(currentPage, Math.max(0, totalPages - 1));
+
+        ctx.centeredText(client.font,
+                (currentPage + 1) + "/" + totalPages,
+                startX + panelWidth / 2, 13, -1);
+
+        List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems(panelWidth, scaledHeight);
+        ItemStack hoveredItem = null;
+
+        for (int i = 0; i < page.size(); i++) {
+            int ix = startX + 4 + (i % columns) * 18;
+            int iy = 28 + (i / columns) * 18;
+
+            ctx.item(page.get(i).stack(), ix, iy);
+
+            if (page.get(i).count() > 0) {
+                String countText = formatCount(page.get(i).count());
+                float scale = 0.65f;
+                int textW   = client.font.width(countText);
+                int textH   = client.font.lineHeight;
+
+                float anchorX = ix + 16f;
+                float anchorY = iy + 16f;
+
+                ctx.pose().pushMatrix();
+                ctx.pose().translate(anchorX, anchorY);
+                ctx.pose().scale(scale, scale);
+                ctx.text(client.font, countText, -textW, -textH, -1);
+                ctx.pose().popMatrix();
+            }
+
+            if (showTooltips && mx >= ix && mx < ix + 18 && my >= iy && my < iy + 18) {
+                hoveredItem = page.get(i).stack();
+            }
+        }
+
+        if (sortButton != null && sortButton.isMouseOver(mx, my))
+            ctx.setTooltipForNextFrame(client.font, Component.literal("Sort: " + currentSort.hoverName), mx, my);
+        if (tooltipBtn != null && tooltipBtn.isMouseOver(mx, my))
+            ctx.setTooltipForNextFrame(client.font, Component.literal("Item Tooltips"), mx, my);
+        if (collapseBtn != null && collapseBtn.isMouseOver(mx, my))
+            ctx.setTooltipForNextFrame(client.font, Component.literal(panelVisible ? "Hide panel" : "Show panel"), mx, my);
+
+        if (hoveredItem != null) {
+            ctx.setTooltipForNextFrame(client.font, hoveredItem, mx, my);
+        }
     }
 
     private static ItemStack findHoveredItemStack(double mx, double my, int startX, int panelWidth, int scaledHeight) {
@@ -304,6 +320,7 @@ public class InfiniteInventoryOverlay {
     }
 
     private static List<SyncInventoryPayload.NetworkItemData> getSortedFilteredAll() {
+        if (searchBox == null) return new ArrayList<>();
         String q = searchBox.getValue().toLowerCase(Locale.ROOT);
         List<SyncInventoryPayload.NetworkItemData> list = new ArrayList<>();
         for (SyncInventoryPayload.NetworkItemData data : cachedItems) {

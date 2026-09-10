@@ -17,10 +17,14 @@
 	"entrypoints": {
 		"main": [
 			"com.robsterad.infiniteinv.InfiniteInv"
+		],
+		"client": [
+			"com.robsterad.infiniteinv.InfiniteInvClient"
 		]
 	},
 	"mixins": [
-		"infinite-inventory.mixins.json"
+		"infinite-inventory.mixins.json",
+		"infinite-inventory.client.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.15.0",

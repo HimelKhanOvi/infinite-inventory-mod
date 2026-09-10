@@ -127,6 +127,15 @@ public class InfiniteInventoryOverlay {
             nextPageBtn = Button.builder(Component.literal(">"), b -> {})
                     .pos(startX + panelWidth - 20, 10).size(20, 14).build();
 
+            if (screen instanceof net.minecraft.client.gui.screens.Screen vanillaScreen) {
+                vanillaScreen.addRenderableWidget(searchBox);
+                vanillaScreen.addRenderableWidget(sortButton);
+                vanillaScreen.addRenderableWidget(tooltipBtn);
+                vanillaScreen.addRenderableWidget(collapseBtn);
+                vanillaScreen.addRenderableWidget(prevPageBtn);
+                vanillaScreen.addRenderableWidget(nextPageBtn);
+            }
+
             ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> {
                 double mx = event.x();
                 double my = event.y();
@@ -227,30 +236,9 @@ public class InfiniteInventoryOverlay {
         lastMouseX = mx;
         lastMouseY = my;
 
-        if (collapseBtn != null) {
-            collapseBtn.render(ctx, mx, my, delta);
-        }
-
         if (!panelVisible) return;
 
         ctx.fill(startX, 8, startX + panelWidth, scaledHeight - 8, 0x88222222);
-
-        if (searchBox != null) searchBox.render(ctx, mx, my, delta);
-        if (sortButton != null) sortButton.render(ctx, mx, my, delta);
-        if (tooltipBtn != null) tooltipBtn.render(ctx, mx, my, delta);
-        
-        if (showTooltips && tooltipBtn != null) {
-            int tx = tooltipBtn.getX(), ty = tooltipBtn.getY();
-            int tw = tooltipBtn.getWidth(), th = tooltipBtn.getHeight();
-            int outline = 0xFFFFFFFF;
-            ctx.fill(tx, ty, tx + tw, ty + 1, outline);
-            ctx.fill(tx, ty + th - 1, tx + tw, ty + th, outline);
-            ctx.fill(tx, ty, tx + 1, ty + th, outline);
-            ctx.fill(tx + tw - 1, ty, tx + tw, ty + th, outline);
-        }
-        
-        if (prevPageBtn != null) prevPageBtn.render(ctx, mx, my, delta);
-        if (nextPageBtn != null) nextPageBtn.render(ctx, mx, my, delta);
 
         List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
         int columns    = Math.max(1, (panelWidth - 8) / 18);

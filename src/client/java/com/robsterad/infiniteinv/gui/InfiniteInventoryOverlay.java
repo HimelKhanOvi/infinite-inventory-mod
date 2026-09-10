@@ -22,7 +22,6 @@ public class InfiniteInvClient implements ClientModInitializer {
     public void onInitializeClient() {
         InfiniteInvConfig.load();
         
-        // অত্যন্ত গুরুত্বপূর্ণ: ওভারলে এবং ইভেন্ট রেজিস্টার করার জন্য এটি থাকতেই হবে
         InfiniteInventoryOverlay.register();
 
         toggleKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(

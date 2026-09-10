@@ -17,12 +17,6 @@
 	"entrypoints": {
 		"main": [
 			"com.robsterad.infiniteinv.InfiniteInv"
-		],
-		"client": [
-			"com.robsterad.infiniteinv.InfiniteInvClient"
-		],
-		"modmenu": [
-			"com.robsterad.infiniteinv.config.InfiniteInvModMenuIntegration"
 		]
 	},
 	"mixins": [

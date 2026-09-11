@@ -2,6 +2,7 @@ package com.robsterad.infiniteinv.gui;
 
 import com.robsterad.infiniteinv.config.InfiniteInvConfig;
 import com.robsterad.infiniteinv.mixin.AbstractContainerScreenAccessor;
+import com.robsterad.infiniteinv.network.DepositItemPayload;
 import com.robsterad.infiniteinv.network.ExtractItemPayload;
 import com.robsterad.infiniteinv.network.SyncInventoryPayload;
 import com.robsterad.infiniteinv.network.UpdateUiPrefsPayload;
@@ -56,7 +57,9 @@ public class InfiniteInventoryOverlay {
     private static double lastMouseX = -1;
     private static double lastMouseY = -1;
 
+    // Fixed 7 columns and 10 rows
     private static final int COLUMNS = 7;
+    private static final int ROWS = 10;
     private static final int SLOT_SIZE = 18;
     private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12;
 
@@ -71,7 +74,7 @@ public class InfiniteInventoryOverlay {
     }
 
     private static void sendUiPrefsUpdate() {
-        ClientPlayNetworking.send(new UpdateUiPrefsPayload(panelVisible, currentSort.name(), showTooltips));
+        ClientPlayNetworking.send(new UpdateUiPrefsPayload(true, currentSort.name(), showTooltips));
     }
 
     public static boolean isSearchFocused() {
@@ -92,9 +95,9 @@ public class InfiniteInventoryOverlay {
             if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) return;
 
             panelActive = true;
-            panelVisible = true; // ইনভেন্টরি বা চেস্ট খুললেই প্যানেল সবসময় দৃশ্যমান থাকবে
+            panelVisible = true;
 
-            searchBox = new EditBox(client.font, 0, 0, 60, 14, Component.literal(""));
+            searchBox = new EditBox(client.font, 0, 0, 70, 14, Component.literal(""));
             searchBox.setHint(Component.literal("Search..."));
 
             ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> {
@@ -109,36 +112,31 @@ public class InfiniteInventoryOverlay {
 
                 int bottomY = startY + panelHeight - 18;
 
-                if (!panelVisible) {
-                    if (btn == 0 && mx >= startX && mx <= startX + 16 && my >= bottomY && my <= bottomY + 14) {
-                        panelVisible = true;
-                        sendUiPrefsUpdate();
+                // Deposit item if clicking overlay with carried item
+                boolean isInsideOverlay = mx >= startX && mx <= startX + PANEL_WIDTH && my >= startY && my <= startY + panelHeight;
+                if (isInsideOverlay && client.player != null) {
+                    ItemStack carried = client.player.containerMenu.getCarried();
+                    if (!carried.isEmpty()) {
+                        ClientPlayNetworking.send(new DepositItemPayload(carried.copy()));
                         return false;
                     }
-                    return true;
-                }
-
-                if (btn == 0 && mx >= startX + 118 && mx <= startX + 134 && my >= bottomY && my <= bottomY + 14) {
-                    panelVisible = false;
-                    sendUiPrefsUpdate();
-                    return false;
                 }
 
                 if (btn == 0) {
-                    if (searchBox != null && mx >= startX + 4 && mx <= startX + 64 && my >= bottomY && my <= bottomY + 14) {
+                    if (searchBox != null && mx >= startX + 4 && mx <= startX + 74 && my >= bottomY && my <= bottomY + 14) {
                         searchBox.setFocused(true);
                         return false;
                     }
                     if (searchBox != null) searchBox.setFocused(false);
 
-                    if (mx >= startX + 68 && mx <= startX + 86 && my >= bottomY && my <= bottomY + 14) {
+                    if (mx >= startX + 78 && mx <= startX + 96 && my >= bottomY && my <= bottomY + 14) {
                         currentSort = SortMode.values()[(currentSort.ordinal() + 1) % SortMode.values().length];
                         currentPage = 0;
                         sendUiPrefsUpdate();
                         return false;
                     }
 
-                    if (mx >= startX + 90 && mx <= startX + 114 && my >= bottomY && my <= bottomY + 14) {
+                    if (mx >= startX + 100 && mx <= startX + 124 && my >= bottomY && my <= bottomY + 14) {
                         showTooltips = !showTooltips;
                         sendUiPrefsUpdate();
                         return false;
@@ -156,20 +154,20 @@ public class InfiniteInventoryOverlay {
                 }
 
                 ItemStack hovered = findHoveredItemStack(mx, my, startX, startY, PANEL_WIDTH, panelHeight);
-                if (hovered != null) {
+                if (hovered != null && !hovered.isEmpty()) {
                     if (InfiniteInvConfig.INSTANCE.takeStack.matchesMouse(btn)) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
+                        return false;
                     } else if (InfiniteInvConfig.INSTANCE.takeOne.matchesMouse(btn)) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, true));
+                        return false;
                     }
-                    return false;
                 }
 
                 return true;
             });
 
             ScreenKeyboardEvents.allowKeyPress(screen).register((s, event) -> {
-                if (!panelVisible) return true;
                 if (searchBox != null && searchBox.isFocused()) {
                     if (event.key() == GLFW.GLFW_KEY_E || event.key() == GLFW.GLFW_KEY_BACKSPACE) {
                         searchBox.keyPressed(event);
@@ -180,7 +178,7 @@ public class InfiniteInventoryOverlay {
 
                 int[] bounds = calculateBounds(containerScreen);
                 ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, bounds[0], bounds[1], bounds[2], bounds[3]);
-                if (hovered != null) {
+                if (hovered != null && !hovered.isEmpty()) {
                     if (InfiniteInvConfig.INSTANCE.takeStack.matchesKey(event.key(), event.scancode())) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
                         return false;
@@ -197,9 +195,10 @@ public class InfiniteInventoryOverlay {
     private static int[] calculateBounds(int left, int top, int width, int height) {
         Minecraft client = Minecraft.getInstance();
         int scaledWidth = client.getWindow().getGuiScaledWidth();
-
         int pWidth = (width <= 0) ? 176 : width;
-        int pHeight = (height <= 0) ? 166 : height;
+        
+        int targetHeight = 22 + (ROWS * SLOT_SIZE) + 20;
+        int pHeight = Math.max(height <= 0 ? 166 : height, targetHeight);
         
         int startX = left + pWidth + 4;
         int startY = top;
@@ -219,6 +218,7 @@ public class InfiniteInventoryOverlay {
     public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta, int leftPos, int topPos, int imageWidth, int imageHeight) {
         Minecraft client = Minecraft.getInstance();
         panelActive = true;
+        panelVisible = true;
 
         int[] bounds = calculateBounds(leftPos, topPos, imageWidth, imageHeight);
         int startX = bounds[0];
@@ -235,23 +235,18 @@ public class InfiniteInventoryOverlay {
             searchBox.setPosition(startX + 4, bottomY);
         }
 
-        if (!panelVisible) {
-            drawCustomButton(ctx, client, "▶", startX, bottomY, 16, 14, mx, my);
-            return;
-        }
-
+        // Draw background
         ctx.fill(startX - 2, startY - 2, startX + panelWidth + 2, startY + panelHeight + 2, 0xFF000000);
         ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF2A2E3D);
         ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xFF141822);
 
+        // Page buttons
         drawCustomButton(ctx, client, "<", startX + 4, startY + 4, 18, 14, mx, my);
         drawCustomButton(ctx, client, ">", startX + panelWidth - 22, startY + 4, 18, 14, mx, my);
 
         List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
         int gridStartY = startY + 22;
-        int gridHeight = bottomY - gridStartY - 4;
-        int rows = Math.max(1, gridHeight / SLOT_SIZE);
-        itemsPerPage = Math.max(1, COLUMNS * rows);
+        itemsPerPage = COLUMNS * ROWS;
 
         int totalPages = Math.max(1, (int) Math.ceil((double) all.size() / itemsPerPage));
         currentPage = Math.min(currentPage, Math.max(0, totalPages - 1));
@@ -262,11 +257,10 @@ public class InfiniteInventoryOverlay {
         if (searchBox != null) {
             searchBox.render(ctx, mx, my, delta);
         }
-        drawCustomButton(ctx, client, currentSort.shortLabel, startX + 68, bottomY, 18, 14, mx, my);
-        drawCustomButton(ctx, client, showTooltips ? "T:ON" : "T:OFF", startX + 90, bottomY, 24, 14, mx, my);
-        drawCustomButton(ctx, client, "◀", startX + 118, bottomY, 16, 14, mx, my);
+        drawCustomButton(ctx, client, currentSort.shortLabel, startX + 78, bottomY, 18, 14, mx, my);
+        drawCustomButton(ctx, client, showTooltips ? "T:ON" : "T:OFF", startX + 100, bottomY, 24, 14, mx, my);
 
-        List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems(gridHeight);
+        List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems();
         ItemStack hoveredItem = null;
 
         for (int i = 0; i < page.size(); i++) {
@@ -310,12 +304,8 @@ public class InfiniteInventoryOverlay {
     }
 
     private static ItemStack findHoveredItemStack(double mx, double my, int startX, int startY, int panelWidth, int panelHeight) {
-        if (!panelVisible) return null;
         int gridStartY = startY + 22;
-        int bottomY = startY + panelHeight - 18;
-        int gridHeight = bottomY - gridStartY - 4;
-
-        List<SyncInventoryPayload.NetworkItemData> list = getProcessedItems(gridHeight);
+        List<SyncInventoryPayload.NetworkItemData> list = getProcessedItems();
         for (int i = 0; i < list.size(); i++) {
             int col = i % COLUMNS;
             int row = i / COLUMNS;
@@ -362,10 +352,9 @@ public class InfiniteInventoryOverlay {
         return list;
     }
 
-    private static List<SyncInventoryPayload.NetworkItemData> getProcessedItems(int gridHeight) {
+    private static List<SyncInventoryPayload.NetworkItemData> getProcessedItems() {
         List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
-        int rows = Math.max(1, gridHeight / SLOT_SIZE);
-        itemsPerPage = Math.max(1, COLUMNS * rows);
+        itemsPerPage = COLUMNS * ROWS;
         int start = currentPage * itemsPerPage;
         if (start >= all.size()) return new ArrayList<>();
         return all.subList(start, Math.min(start + itemsPerPage, all.size()));

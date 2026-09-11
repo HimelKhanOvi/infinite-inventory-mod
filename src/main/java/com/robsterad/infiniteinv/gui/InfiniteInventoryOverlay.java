@@ -1,7 +1,6 @@
 package com.robsterad.infiniteinv.gui;
 
 import com.robsterad.infiniteinv.config.InfiniteInvConfig;
-import com.robsterad.infiniteinv.mixin.AbstractContainerScreenAccessor;
 import com.robsterad.infiniteinv.network.ExtractItemPayload;
 import com.robsterad.infiniteinv.network.SyncInventoryPayload;
 import com.robsterad.infiniteinv.network.UpdateUiPrefsPayload;
@@ -58,7 +57,7 @@ public class InfiniteInventoryOverlay {
 
     private static final int COLUMNS = 7;
     private static final int SLOT_SIZE = 18;
-    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12;
+    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12; // 138 px
 
     public static void applyUiPrefs(boolean visible, String sortModeName, boolean tooltips) {
         panelVisible = visible;
@@ -91,7 +90,7 @@ public class InfiniteInventoryOverlay {
     public static void register() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             panelActive = false;
-            if (!(screen instanceof AbstractContainerScreen<?>)) return;
+            if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) return;
 
             panelActive = true;
 
@@ -102,8 +101,6 @@ public class InfiniteInventoryOverlay {
                 double mx = event.x();
                 double my = event.y();
                 int btn = event.button();
-
-                if (!(s instanceof AbstractContainerScreen<?> containerScreen)) return true;
 
                 int[] bounds = calculateBounds(containerScreen);
                 int startX = bounds[0];
@@ -174,7 +171,6 @@ public class InfiniteInventoryOverlay {
                     return true;
                 }
 
-                if (!(s instanceof AbstractContainerScreen<?> containerScreen)) return true;
                 int[] bounds = calculateBounds(containerScreen);
                 ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, bounds[0], bounds[1], bounds[2], bounds[3]);
                 if (hovered != null) {
@@ -210,8 +206,7 @@ public class InfiniteInventoryOverlay {
     }
 
     private static int[] calculateBounds(AbstractContainerScreen<?> screen) {
-        AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
-        return calculateBounds(acc.getLeftPos(), acc.getTopPos(), acc.getImageWidth(), acc.getImageHeight());
+        return calculateBounds(screen.getGuiLeft(), screen.getGuiTop(), screen.getXSize(), screen.getYSize());
     }
 
     public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta, int leftPos, int topPos, int imageWidth, int imageHeight) {
@@ -237,9 +232,11 @@ public class InfiniteInventoryOverlay {
             return;
         }
 
+        // GUI Background Fix (Forced Solid Render)
         ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF000000);
-        ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xF0101419);
+        ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xFF101419);
 
+        // Header Buttons
         drawCustomButton(ctx, client, "<", startX + 4, startY + 4, 18, 14, mx, my);
         drawCustomButton(ctx, client, ">", startX + panelWidth - 22, startY + 4, 18, 14, mx, my);
 

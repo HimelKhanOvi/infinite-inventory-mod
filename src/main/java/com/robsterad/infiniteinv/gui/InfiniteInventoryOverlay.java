@@ -247,9 +247,8 @@ public class InfiniteInventoryOverlay {
         int totalPages = Math.max(1, (int) Math.ceil((double) all.size() / itemsPerPage));
         currentPage    = Math.min(currentPage, Math.max(0, totalPages - 1));
 
-        ctx.centeredText(client.font,
-                (currentPage + 1) + "/" + totalPages,
-                startX + panelWidth / 2, 13, -1);
+        String pageText = (currentPage + 1) + "/" + totalPages;
+        ctx.drawCenteredString(client.font, pageText, startX + panelWidth / 2, 13, -1);
 
         List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems(panelWidth, scaledHeight);
         ItemStack hoveredItem = null;
@@ -258,7 +257,7 @@ public class InfiniteInventoryOverlay {
             int ix = startX + 4 + (i % columns) * 18;
             int iy = 28 + (i / columns) * 18;
 
-            ctx.item(page.get(i).stack(), ix, iy);
+            ctx.renderItem(page.get(i).stack(), ix, iy);
 
             if (page.get(i).count() > 0) {
                 String countText = formatCount(page.get(i).count());
@@ -272,7 +271,7 @@ public class InfiniteInventoryOverlay {
                 ctx.pose().pushMatrix();
                 ctx.pose().translate(anchorX, anchorY);
                 ctx.pose().scale(scale, scale);
-                ctx.text(client.font, countText, -textW, -textH, -1);
+                ctx.drawString(client.font, countText, -textW, -textH, -1, false);
                 ctx.pose().popMatrix();
             }
 

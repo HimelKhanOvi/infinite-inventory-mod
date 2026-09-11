@@ -61,6 +61,7 @@ public class InfiniteInventoryOverlay {
 
     private static final int COLUMNS = 7;
     private static final int SLOT_SIZE = 18;
+    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12; // 138 pixels wide
 
     public static void applyUiPrefs(boolean visible, String sortModeName, boolean tooltips) {
         panelVisible = visible;
@@ -100,20 +101,20 @@ public class InfiniteInventoryOverlay {
 
             panelActive = true;
 
-            searchBox = new EditBox(client.font, 0, 0, 70, 16, Component.literal(""));
+            searchBox = new EditBox(client.font, -1000, -1000, 70, 16, Component.literal(""));
             searchBox.setHint(Component.literal("Search..."));
 
             sortButton  = Button.builder(Component.literal(currentSort.shortLabel), b -> {})
-                    .pos(0, 0).size(18, 16).build();
+                    .pos(-1000, -1000).size(18, 16).build();
             tooltipBtn  = Button.builder(Component.literal(showTooltips ? "T:ON" : "T:OFF"), b -> {})
-                    .pos(0, 0).size(36, 16).build();
+                    .pos(-1000, -1000).size(36, 16).build();
             collapseBtn = Button.builder(Component.literal(panelVisible ? "◀" : "▶"), b -> {})
-                    .pos(0, 0).size(18, 16).build();
+                    .pos(-1000, -1000).size(18, 16).build();
 
             prevPageBtn = Button.builder(Component.literal("<"), b -> {})
-                    .pos(0, 0).size(18, 16).build();
+                    .pos(-1000, -1000).size(18, 16).build();
             nextPageBtn = Button.builder(Component.literal(">"), b -> {})
-                    .pos(0, 0).size(18, 16).build();
+                    .pos(-1000, -1000).size(18, 16).build();
 
             Screens.getButtons(screen).addAll(List.of(
                 searchBox, sortButton, tooltipBtn, collapseBtn, prevPageBtn, nextPageBtn
@@ -166,13 +167,8 @@ public class InfiniteInventoryOverlay {
                     }
                 }
 
-                AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) s;
-                int startX = acc.getLeftPos() + acc.getImageWidth() + 6;
-                int startY = acc.getTopPos();
-                int panelWidth = (COLUMNS * SLOT_SIZE) + 12;
-                int panelHeight = Math.max(acc.getImageHeight(), 166);
-
-                ItemStack hovered = findHoveredItemStack(mx, my, startX, startY, panelWidth, panelHeight);
+                int[] bounds = getPanelBounds((AbstractContainerScreen<?>) s);
+                ItemStack hovered = findHoveredItemStack(mx, my, bounds[0], bounds[1], bounds[2], bounds[3]);
                 if (hovered != null) {
                     if (InfiniteInvConfig.INSTANCE.takeStack.matchesMouse(btn)) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
@@ -195,13 +191,8 @@ public class InfiniteInventoryOverlay {
                     return true;
                 }
 
-                AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) s;
-                int startX = acc.getLeftPos() + acc.getImageWidth() + 6;
-                int startY = acc.getTopPos();
-                int panelWidth = (COLUMNS * SLOT_SIZE) + 12;
-                int panelHeight = Math.max(acc.getImageHeight(), 166);
-
-                ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, startX, startY, panelWidth, panelHeight);
+                int[] bounds = getPanelBounds((AbstractContainerScreen<?>) s);
+                ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, bounds[0], bounds[1], bounds[2], bounds[3]);
                 if (hovered != null) {
                     if (InfiniteInvConfig.INSTANCE.takeStack.matchesKey(event.key(), event.scancode())) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
@@ -216,19 +207,42 @@ public class InfiniteInventoryOverlay {
         });
     }
 
-    public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta) {
+    private static int[] getPanelBounds(AbstractContainerScreen<?> screen) {
         Minecraft client = Minecraft.getInstance();
         int scaledWidth = client.getWindow().getGuiScaledWidth();
+        int scaledHeight = client.getWindow().getGuiScaledHeight();
 
         AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
-        int startX = acc.getLeftPos() + acc.getImageWidth() + 6;
-        int startY = acc.getTopPos();
-        int panelWidth = (COLUMNS * SLOT_SIZE) + 12;
-        int panelHeight = Math.max(acc.getImageHeight(), 166);
+        int left = acc.getLeftPos();
+        int width = acc.getImageWidth();
+        int top = acc.getTopPos();
+        int height = acc.getImageHeight();
 
-        if (startX + panelWidth > scaledWidth) {
-            startX = scaledWidth - panelWidth - 4;
+        int startX;
+        if (left <= 0 || width <= 0) {
+            startX = (scaledWidth / 2) + 88;
+        } else {
+            startX = left + width + 4;
         }
+
+        int startY = (top <= 0) ? (scaledHeight - 166) / 2 : top;
+        int panelHeight = (height <= 0) ? 166 : height;
+
+        if (startX + PANEL_WIDTH > scaledWidth) {
+            startX = scaledWidth - PANEL_WIDTH - 2;
+        }
+
+        return new int[]{startX, startY, PANEL_WIDTH, panelHeight};
+    }
+
+    public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta) {
+        Minecraft client = Minecraft.getInstance();
+
+        int[] bounds = getPanelBounds(screen);
+        int startX = bounds[0];
+        int startY = bounds[1];
+        int panelWidth = bounds[2];
+        int panelHeight = bounds[3];
 
         lastMouseX = mx;
         lastMouseY = my;
@@ -244,6 +258,7 @@ public class InfiniteInventoryOverlay {
 
         if (!panelVisible) return;
 
+        // Render Background Panel Exactly matching Reference Design
         ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xF0101419);
 
         List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();

@@ -110,7 +110,6 @@ public class InfiniteInventoryOverlay {
 
                 int bottomY = startY + panelHeight - 18;
 
-                // Collapse Button
                 if (btn == 0 && mx >= startX + 118 && mx <= startX + 134 && my >= bottomY && my <= bottomY + 14) {
                     panelVisible = !panelVisible;
                     sendUiPrefsUpdate();
@@ -120,14 +119,12 @@ public class InfiniteInventoryOverlay {
                 if (!panelVisible) return true;
 
                 if (btn == 0) {
-                    // Search Focus
                     if (searchBox != null && mx >= startX + 4 && mx <= startX + 64 && my >= bottomY && my <= bottomY + 14) {
                         searchBox.setFocused(true);
                         return false;
                     }
                     if (searchBox != null) searchBox.setFocused(false);
 
-                    // Sort Button
                     if (mx >= startX + 68 && mx <= startX + 86 && my >= bottomY && my <= bottomY + 14) {
                         currentSort = SortMode.values()[(currentSort.ordinal() + 1) % SortMode.values().length];
                         currentPage = 0;
@@ -135,20 +132,17 @@ public class InfiniteInventoryOverlay {
                         return false;
                     }
 
-                    // Tooltip Toggle Button
                     if (mx >= startX + 90 && mx <= startX + 114 && my >= bottomY && my <= bottomY + 14) {
                         showTooltips = !showTooltips;
                         sendUiPrefsUpdate();
                         return false;
                     }
 
-                    // Page Prev
                     if (mx >= startX + 4 && mx <= startX + 22 && my >= startY + 4 && my <= startY + 18) {
                         if (currentPage > 0) currentPage--;
                         return false;
                     }
 
-                    // Page Next
                     if (mx >= startX + PANEL_WIDTH - 22 && mx <= startX + PANEL_WIDTH - 4 && my >= startY + 4 && my <= startY + 18) {
                         currentPage++;
                         return false;
@@ -239,11 +233,9 @@ public class InfiniteInventoryOverlay {
             return;
         }
 
-        // Render Panel Dark Background (Forced Depth Layer Fix)
         ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF000000);
         ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xF0101419);
 
-        // Header Buttons (< 1/3 >)
         drawCustomButton(ctx, client, "<", startX + 4, startY + 4, 18, 14, mx, my);
         drawCustomButton(ctx, client, ">", startX + panelWidth - 22, startY + 4, 18, 14, mx, my);
 
@@ -259,7 +251,6 @@ public class InfiniteInventoryOverlay {
         String pageText = (currentPage + 1) + "/" + totalPages;
         ctx.drawString(client.font, pageText, startX + (panelWidth - client.font.width(pageText)) / 2, startY + 7, 0xFFFFFFFF, true);
 
-        // Bottom Controls
         if (searchBox != null) {
             searchBox.render(ctx, mx, my, delta);
         }
@@ -267,7 +258,6 @@ public class InfiniteInventoryOverlay {
         drawCustomButton(ctx, client, showTooltips ? "T:ON" : "T:OFF", startX + 90, bottomY, 24, 14, mx, my);
         drawCustomButton(ctx, client, "◀", startX + 118, bottomY, 16, 14, mx, my);
 
-        // Items Render
         List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems(gridHeight);
         ItemStack hoveredItem = null;
 
@@ -282,14 +272,8 @@ public class InfiniteInventoryOverlay {
 
             if (page.get(i).count() > 0) {
                 String countText = formatCount(page.get(i).count());
-                float scale = 0.65f;
                 int textW = client.font.width(countText);
-
-                ctx.pose().pushMatrix();
-                ctx.pose().translate(ix + 16, iy + 16, 200);
-                ctx.pose().scale(scale, scale, 1.0f);
-                ctx.drawString(client.font, countText, -textW, -client.font.lineHeight, 0xFFFFFFFF, true);
-                ctx.pose().popMatrix();
+                ctx.drawString(client.font, countText, ix + 17 - textW, iy + 9, 0xFFFFFFFF, true);
             }
 
             if (showTooltips && mx >= ix && mx < ix + 18 && my >= iy && my < iy + 18) {

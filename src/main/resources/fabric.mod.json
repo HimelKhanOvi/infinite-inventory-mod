@@ -20,18 +20,24 @@
 		],
 		"client": [
 			"com.robsterad.infiniteinv.InfiniteInvClient"
+		],
+		"modmenu": [
+			"com.robsterad.infiniteinv.config.InfiniteInvModMenuIntegration"
 		]
 	},
 	"mixins": [
 		"infinite-inventory.mixins.json",
-		"infinite-inventory.client.mixins.json"
+		{
+			"config": "infinite-inventory.client.mixins.json",
+			"environment": "client"
+		}
 	],
 	"depends": {
 		"fabricloader": ">=0.15.0",
 		"minecraft": "~1.21.11",
 		"java": ">=21",
 		"fabric-api": "*",
-		"modmenu": "*",
-		"cloth-config": "*"
+		"modmenu": ">=11.0.0",
+		"cloth-config": ">=15.0.0"
 	}
 }

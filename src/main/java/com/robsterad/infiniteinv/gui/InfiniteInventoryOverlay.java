@@ -61,7 +61,6 @@ public class InfiniteInventoryOverlay {
     private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12;
 
     public static void applyUiPrefs(boolean visible, String sortModeName, boolean tooltips) {
-        panelVisible = visible;
         showTooltips = tooltips;
         try {
             currentSort = SortMode.valueOf(sortModeName);
@@ -93,6 +92,7 @@ public class InfiniteInventoryOverlay {
             if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) return;
 
             panelActive = true;
+            panelVisible = true; // ইনভেন্টরি বা চেস্ট খুললেই প্যানেল সবসময় দৃশ্যমান থাকবে
 
             searchBox = new EditBox(client.font, 0, 0, 60, 14, Component.literal(""));
             searchBox.setHint(Component.literal("Search..."));
@@ -109,13 +109,20 @@ public class InfiniteInventoryOverlay {
 
                 int bottomY = startY + panelHeight - 18;
 
+                if (!panelVisible) {
+                    if (btn == 0 && mx >= startX && mx <= startX + 16 && my >= bottomY && my <= bottomY + 14) {
+                        panelVisible = true;
+                        sendUiPrefsUpdate();
+                        return false;
+                    }
+                    return true;
+                }
+
                 if (btn == 0 && mx >= startX + 118 && mx <= startX + 134 && my >= bottomY && my <= bottomY + 14) {
-                    panelVisible = !panelVisible;
+                    panelVisible = false;
                     sendUiPrefsUpdate();
                     return false;
                 }
-
-                if (!panelVisible) return true;
 
                 if (btn == 0) {
                     if (searchBox != null && mx >= startX + 4 && mx <= startX + 64 && my >= bottomY && my <= bottomY + 14) {

@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(value = AbstractContainerScreen.class, priority = 1000)
+@Mixin(value = AbstractContainerScreen.class, priority = 9999)
 public abstract class HandledScreenMixin {
 
     @Shadow protected int leftPos;
@@ -17,16 +17,9 @@ public abstract class HandledScreenMixin {
     @Shadow protected int imageWidth;
     @Shadow protected int imageHeight;
 
-    @Inject(
-        method = "render",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;renderTooltip(Lnet/minecraft/client/gui/GuiGraphics;II)V",
-            shift = At.Shift.BEFORE
-        )
-    )
-    private void onRenderOverlayBeforeTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
+    @Inject(method = "render", at = @At("TAIL"))
+    private void onRenderOverlay(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>)(Object)this;
         InfiniteInventoryOverlay.renderOverlay(screen, guiGraphics, mouseX, mouseY, delta, this.leftPos, this.topPos, this.imageWidth, this.imageHeight);
     }
 }

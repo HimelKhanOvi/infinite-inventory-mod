@@ -9,6 +9,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
+import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.gui.GuiGraphics;
@@ -127,14 +128,9 @@ public class InfiniteInventoryOverlay {
             nextPageBtn = Button.builder(Component.literal(">"), b -> {})
                     .pos(startX + panelWidth - 20, 10).size(20, 14).build();
 
-            if (screen instanceof net.minecraft.client.gui.screens.Screen vanillaScreen) {
-                vanillaScreen.addRenderableWidget(searchBox);
-                vanillaScreen.addRenderableWidget(sortButton);
-                vanillaScreen.addRenderableWidget(tooltipBtn);
-                vanillaScreen.addRenderableWidget(collapseBtn);
-                vanillaScreen.addRenderableWidget(prevPageBtn);
-                vanillaScreen.addRenderableWidget(nextPageBtn);
-            }
+            Screens.getButtons(screen).addAll(List.of(
+                searchBox, sortButton, tooltipBtn, collapseBtn, prevPageBtn, nextPageBtn
+            ));
 
             ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> {
                 double mx = event.x();

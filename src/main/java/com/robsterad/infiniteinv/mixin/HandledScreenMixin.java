@@ -17,7 +17,7 @@ public abstract class HandledScreenMixin {
     @Shadow protected int imageWidth;
     @Shadow protected int imageHeight;
 
-    @Inject(method = "render", at = @At("TAIL"))
+    @Inject(method = "render", at = @At("RETURN"))
     private void onRenderOverlay(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>)(Object)this;
         InfiniteInventoryOverlay.renderOverlay(screen, guiGraphics, mouseX, mouseY, delta, this.leftPos, this.topPos, this.imageWidth, this.imageHeight);

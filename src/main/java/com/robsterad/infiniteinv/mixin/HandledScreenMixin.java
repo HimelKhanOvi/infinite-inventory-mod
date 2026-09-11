@@ -11,13 +11,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = AbstractContainerScreen.class, priority = 999)
 public class HandledScreenMixin {
 
-    @Inject(method = "render", at = @At("TAIL"), cancellable = true)
-    private void onRender(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        try {
-            AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
-            InfiniteInventoryOverlay.renderOverlay(screen, guiGraphics, mouseX, mouseY, delta);
-        } catch (Throwable t) {
-            // Defensive execution to prevent game crashes
-        }
+    @Inject(method = "render", at = @At("TAIL"))
+    private void onRenderOverlay(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
+        InfiniteInventoryOverlay.renderOverlay(screen, guiGraphics, mouseX, mouseY, delta);
     }
 }

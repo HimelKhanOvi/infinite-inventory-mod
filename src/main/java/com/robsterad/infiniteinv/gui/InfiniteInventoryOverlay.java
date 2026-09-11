@@ -9,11 +9,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
-import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponents;
@@ -30,7 +28,6 @@ import java.util.Locale;
 public class InfiniteInventoryOverlay {
 
     private static EditBox searchBox;
-    private static Button sortButton, prevPageBtn, nextPageBtn, tooltipBtn, collapseBtn;
     public static List<SyncInventoryPayload.NetworkItemData> cachedItems = new ArrayList<>();
 
     public static boolean panelVisible = true;
@@ -72,9 +69,6 @@ public class InfiniteInventoryOverlay {
             currentSort = SortMode.RECENT;
         }
         currentPage = 0;
-        if (collapseBtn != null) collapseBtn.setMessage(Component.literal(panelVisible ? "◀" : "▶"));
-        if (sortButton != null) sortButton.setMessage(Component.literal(currentSort.shortLabel));
-        if (tooltipBtn != null) tooltipBtn.setMessage(Component.literal(showTooltips ? "T:ON" : "T:OFF"));
     }
 
     private static void sendUiPrefsUpdate() {
@@ -101,33 +95,24 @@ public class InfiniteInventoryOverlay {
 
             panelActive = true;
 
-            searchBox = new EditBox(client.font, -1000, -1000, 70, 16, Component.literal(""));
+            searchBox = new EditBox(client.font, 0, 0, 60, 14, Component.literal(""));
             searchBox.setHint(Component.literal("Search..."));
-
-            sortButton  = Button.builder(Component.literal(currentSort.shortLabel), b -> {})
-                    .pos(-1000, -1000).size(18, 16).build();
-            tooltipBtn  = Button.builder(Component.literal(showTooltips ? "T:ON" : "T:OFF"), b -> {})
-                    .pos(-1000, -1000).size(36, 16).build();
-            collapseBtn = Button.builder(Component.literal(panelVisible ? "◀" : "▶"), b -> {})
-                    .pos(-1000, -1000).size(18, 16).build();
-
-            prevPageBtn = Button.builder(Component.literal("<"), b -> {})
-                    .pos(-1000, -1000).size(18, 16).build();
-            nextPageBtn = Button.builder(Component.literal(">"), b -> {})
-                    .pos(-1000, -1000).size(18, 16).build();
-
-            Screens.getButtons(screen).addAll(List.of(
-                searchBox, sortButton, tooltipBtn, collapseBtn, prevPageBtn, nextPageBtn
-            ));
 
             ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> {
                 double mx = event.x();
                 double my = event.y();
                 int btn = event.button();
 
-                if (btn == 0 && collapseBtn != null && collapseBtn.isMouseOver(mx, my)) {
+                int[] bounds = getPanelBounds((AbstractContainerScreen<?>) s);
+                int startX = bounds[0];
+                int startY = bounds[1];
+                int panelHeight = bounds[3];
+
+                int bottomY = startY + panelHeight - 18;
+
+                // Collapse Button Click
+                if (btn == 0 && mx >= startX + 118 && mx <= startX + 134 && my >= bottomY && my <= bottomY + 14) {
                     panelVisible = !panelVisible;
-                    collapseBtn.setMessage(Component.literal(panelVisible ? "◀" : "▶"));
                     sendUiPrefsUpdate();
                     return false;
                 }
@@ -135,40 +120,42 @@ public class InfiniteInventoryOverlay {
                 if (!panelVisible) return true;
 
                 if (btn == 0) {
-                    if (searchBox != null && searchBox.isMouseOver(mx, my)) {
+                    // Search Box Focus
+                    if (searchBox != null && mx >= startX + 4 && mx <= startX + 64 && my >= bottomY && my <= bottomY + 14) {
                         searchBox.setFocused(true);
-                        searchBox.mouseClicked(event, false);
                         return false;
                     }
                     if (searchBox != null) searchBox.setFocused(false);
 
-                    if (sortButton != null && sortButton.isMouseOver(mx, my)) {
+                    // Sort Button Click
+                    if (mx >= startX + 68 && mx <= startX + 86 && my >= bottomY && my <= bottomY + 14) {
                         currentSort = SortMode.values()[(currentSort.ordinal() + 1) % SortMode.values().length];
-                        sortButton.setMessage(Component.literal(currentSort.shortLabel));
                         currentPage = 0;
                         sendUiPrefsUpdate();
                         return false;
                     }
 
-                    if (tooltipBtn != null && tooltipBtn.isMouseOver(mx, my)) {
+                    // Tooltip Toggle Click
+                    if (mx >= startX + 90 && mx <= startX + 114 && my >= bottomY && my <= bottomY + 14) {
                         showTooltips = !showTooltips;
-                        tooltipBtn.setMessage(Component.literal(showTooltips ? "T:ON" : "T:OFF"));
                         sendUiPrefsUpdate();
                         return false;
                     }
 
-                    if (prevPageBtn != null && prevPageBtn.isMouseOver(mx, my)) {
+                    // Page Previous Click
+                    if (mx >= startX + 4 && mx <= startX + 22 && my >= startY + 4 && my <= startY + 18) {
                         if (currentPage > 0) currentPage--;
                         return false;
                     }
-                    if (nextPageBtn != null && nextPageBtn.isMouseOver(mx, my)) {
+
+                    // Page Next Click
+                    if (mx >= startX + PANEL_WIDTH - 22 && mx <= startX + PANEL_WIDTH - 4 && my >= startY + 4 && my <= startY + 18) {
                         currentPage++;
                         return false;
                     }
                 }
 
-                int[] bounds = getPanelBounds((AbstractContainerScreen<?>) s);
-                ItemStack hovered = findHoveredItemStack(mx, my, bounds[0], bounds[1], bounds[2], bounds[3]);
+                ItemStack hovered = findHoveredItemStack(mx, my, startX, startY, PANEL_WIDTH, panelHeight);
                 if (hovered != null) {
                     if (InfiniteInvConfig.INSTANCE.takeStack.matchesMouse(btn)) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
@@ -218,13 +205,7 @@ public class InfiniteInventoryOverlay {
         int top = acc.getTopPos();
         int height = acc.getImageHeight();
 
-        int startX;
-        if (left <= 0 || width <= 0) {
-            startX = (scaledWidth / 2) + 88;
-        } else {
-            startX = left + width + 4;
-        }
-
+        int startX = (left <= 0 || width <= 0) ? (scaledWidth / 2) + 88 : left + width + 4;
         int startY = (top <= 0) ? (scaledHeight - 166) / 2 : top;
         int panelHeight = (height <= 0) ? 166 : height;
 
@@ -247,22 +228,27 @@ public class InfiniteInventoryOverlay {
         lastMouseX = mx;
         lastMouseY = my;
 
-        if (prevPageBtn != null) prevPageBtn.setPosition(startX + 4, startY + 4);
-        if (nextPageBtn != null) nextPageBtn.setPosition(startX + panelWidth - 22, startY + 4);
+        int bottomY = startY + panelHeight - 18;
 
-        int bottomY = startY + panelHeight - 20;
-        if (searchBox != null) searchBox.setPosition(startX + 4, bottomY);
-        if (sortButton != null) sortButton.setPosition(startX + 76, bottomY);
-        if (tooltipBtn != null) tooltipBtn.setPosition(startX + 96, bottomY);
-        if (collapseBtn != null) collapseBtn.setPosition(startX + 134, bottomY);
+        if (searchBox != null) {
+            searchBox.setPosition(startX + 4, bottomY);
+        }
 
-        if (!panelVisible) return;
+        if (!panelVisible) {
+            // Collapse State Toggle Button
+            drawCustomButton(ctx, client, "▶", startX, bottomY, 16, 14, mx, my);
+            return;
+        }
 
-        // Render Background Panel Exactly matching Reference Design
+        // Render Panel Dark Background
         ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xF0101419);
 
+        // Header Buttons (< 1/3 >)
+        drawCustomButton(ctx, client, "<", startX + 4, startY + 4, 18, 14, mx, my);
+        drawCustomButton(ctx, client, ">", startX + panelWidth - 22, startY + 4, 18, 14, mx, my);
+
         List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
-        int gridStartY = startY + 24;
+        int gridStartY = startY + 22;
         int gridHeight = bottomY - gridStartY - 4;
         int rows = Math.max(1, gridHeight / SLOT_SIZE);
         itemsPerPage = Math.max(1, COLUMNS * rows);
@@ -271,8 +257,17 @@ public class InfiniteInventoryOverlay {
         currentPage = Math.min(currentPage, Math.max(0, totalPages - 1));
 
         String pageText = (currentPage + 1) + "/" + totalPages;
-        ctx.drawCenteredString(client.font, pageText, startX + panelWidth / 2, startY + 8, 0xFFFFFFFF);
+        ctx.drawCenteredString(client.font, pageText, startX + panelWidth / 2, startY + 7, 0xFFFFFFFF);
 
+        // Bottom Controls (Search Box, Sort, Tooltip, Collapse)
+        if (searchBox != null) {
+            searchBox.render(ctx, mx, my, delta);
+        }
+        drawCustomButton(ctx, client, currentSort.shortLabel, startX + 68, bottomY, 18, 14, mx, my);
+        drawCustomButton(ctx, client, showTooltips ? "T:ON" : "T:OFF", startX + 90, bottomY, 24, 14, mx, my);
+        drawCustomButton(ctx, client, "◀", startX + 118, bottomY, 16, 14, mx, my);
+
+        // Items Render
         List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems(gridHeight);
         ItemStack hoveredItem = null;
 
@@ -306,22 +301,29 @@ public class InfiniteInventoryOverlay {
             }
         }
 
-        if (sortButton != null && sortButton.isMouseOver(mx, my))
-            ctx.setTooltipForNextFrame(client.font, Component.literal("Sort: " + currentSort.hoverName), mx, my);
-        if (tooltipBtn != null && tooltipBtn.isMouseOver(mx, my))
-            ctx.setTooltipForNextFrame(client.font, Component.literal("Toggle Tooltips"), mx, my);
-        if (collapseBtn != null && collapseBtn.isMouseOver(mx, my))
-            ctx.setTooltipForNextFrame(client.font, Component.literal(panelVisible ? "Hide panel" : "Show panel"), mx, my);
-
         if (hoveredItem != null) {
             ctx.setTooltipForNextFrame(client.font, hoveredItem, mx, my);
         }
     }
 
+    private static void drawCustomButton(GuiGraphics ctx, Minecraft client, String text, int x, int y, int w, int h, int mx, int my) {
+        boolean hovered = mx >= x && mx < x + w && my >= y && my < y + h;
+        int bgColor = hovered ? 0xFF555555 : 0xFF333333;
+        int borderColor = 0xFF888888;
+
+        ctx.fill(x, y, x + w, y + h, bgColor);
+        ctx.fill(x, y, x + w, y + 1, borderColor);
+        ctx.fill(x, y + h - 1, x + w, y + h, borderColor);
+        ctx.fill(x, y, x + 1, y + h, borderColor);
+        ctx.fill(x + w - 1, y, x + w, y + h, borderColor);
+
+        ctx.drawCenteredString(client.font, text, x + w / 2, y + (h - 8) / 2, 0xFFFFFFFF);
+    }
+
     private static ItemStack findHoveredItemStack(double mx, double my, int startX, int startY, int panelWidth, int panelHeight) {
         if (!panelVisible) return null;
-        int gridStartY = startY + 24;
-        int bottomY = startY + panelHeight - 20;
+        int gridStartY = startY + 22;
+        int bottomY = startY + panelHeight - 18;
         int gridHeight = bottomY - gridStartY - 4;
 
         List<SyncInventoryPayload.NetworkItemData> list = getProcessedItems(gridHeight);

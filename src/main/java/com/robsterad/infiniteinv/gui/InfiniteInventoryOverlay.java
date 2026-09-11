@@ -58,7 +58,7 @@ public class InfiniteInventoryOverlay {
 
     private static final int COLUMNS = 7;
     private static final int SLOT_SIZE = 18;
-    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12; // 138 px
+    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12;
 
     public static void applyUiPrefs(boolean visible, String sortModeName, boolean tooltips) {
         panelVisible = visible;
@@ -191,13 +191,12 @@ public class InfiniteInventoryOverlay {
     private static int[] calculateBounds(int left, int top, int width, int height) {
         Minecraft client = Minecraft.getInstance();
         int scaledWidth = client.getWindow().getGuiScaledWidth();
-        int scaledHeight = client.getWindow().getGuiScaledHeight();
 
         int pWidth = (width <= 0) ? 176 : width;
         int pHeight = (height <= 0) ? 166 : height;
         
-        int startX = (left <= 0) ? (scaledWidth - pWidth) / 2 + pWidth + 4 : left + pWidth + 4;
-        int startY = (top <= 0) ? (scaledHeight - pHeight) / 2 : top;
+        int startX = left + pWidth + 4;
+        int startY = top;
 
         if (startX + PANEL_WIDTH > scaledWidth) {
             startX = scaledWidth - PANEL_WIDTH - 2;
@@ -234,8 +233,12 @@ public class InfiniteInventoryOverlay {
             return;
         }
 
-        ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF000000);
-        ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xFF101419);
+        ctx.pose().pushPose();
+        ctx.pose().translate(0, 0, 300);
+
+        ctx.fill(startX - 2, startY - 2, startX + panelWidth + 2, startY + panelHeight + 2, 0xFF000000);
+        ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF2A2E3D);
+        ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xFF141822);
 
         drawCustomButton(ctx, client, "<", startX + 4, startY + 4, 18, 14, mx, my);
         drawCustomButton(ctx, client, ">", startX + panelWidth - 22, startY + 4, 18, 14, mx, my);
@@ -285,12 +288,14 @@ public class InfiniteInventoryOverlay {
         if (hoveredItem != null) {
             ctx.setTooltipForNextFrame(client.font, hoveredItem, mx, my);
         }
+
+        ctx.pose().popPose();
     }
 
     private static void drawCustomButton(GuiGraphics ctx, Minecraft client, String text, int x, int y, int w, int h, int mx, int my) {
         boolean hovered = mx >= x && mx < x + w && my >= y && my < y + h;
-        int bgColor = hovered ? 0xFF555555 : 0xFF222222;
-        int borderColor = 0xFF777777;
+        int bgColor = hovered ? 0xFF4A5268 : 0xFF282E3E;
+        int borderColor = 0xFF5F6982;
 
         ctx.fill(x, y, x + w, y + h, bgColor);
         ctx.fill(x, y, x + w, y + 1, borderColor);

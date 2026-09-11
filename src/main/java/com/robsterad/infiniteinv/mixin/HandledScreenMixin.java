@@ -21,7 +21,7 @@ public abstract class HandledScreenMixin {
         method = "render",
         at = @At(
             value = "INVOKE",
-            target = "Lnet.minecraft.client.gui.screens.inventory.AbstractContainerScreen;renderTooltip(Lnet/minecraft/client/gui/GuiGraphics;II)V",
+            target = "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;renderTooltip(Lnet/minecraft/client/gui/GuiGraphics;II)V",
             shift = At.Shift.BEFORE
         )
     )

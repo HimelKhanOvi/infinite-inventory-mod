@@ -367,7 +367,7 @@ public class InfiniteInventoryOverlay {
     private static boolean matchesQuery(ItemStack stack, String q) {
         if (q.isEmpty()) return true;
         if (stack.getHoverName().getString().toLowerCase(Locale.ROOT).contains(q)) return true;
-        if.getItem().getName(stack).getString().toLowerCase(Locale.ROOT).contains(q)) return true;
+        if (stack.getItem().getName(stack).getString().toLowerCase(Locale.ROOT).contains(q)) return true;
         if (enchantmentMatches(stack.get(DataComponents.STORED_ENCHANTMENTS), q)) return true;
         if (enchantmentMatches(stack.get(DataComponents.ENCHANTMENTS), q)) return true;
         return false;

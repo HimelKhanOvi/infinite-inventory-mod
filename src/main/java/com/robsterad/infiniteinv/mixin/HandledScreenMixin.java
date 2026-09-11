@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(value = AbstractContainerScreen.class, priority = 999)
+@Mixin(value = AbstractContainerScreen.class, priority = 9999)
 public class HandledScreenMixin {
 
     @Inject(method = "render", at = @At("TAIL"))

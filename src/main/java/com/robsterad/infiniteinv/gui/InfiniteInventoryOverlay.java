@@ -97,13 +97,16 @@ public class InfiniteInventoryOverlay {
             if (!(screen instanceof AbstractContainerScreen<?>)) return;
 
             AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
-            int startX = acc.getLeftPos() + acc.getImageWidth() + 4;
-            int panelWidth = Math.min(160, scaledWidth - startX - 10);
+            int calculatedStartX = acc.getLeftPos() + acc.getImageWidth() + 4;
+            int calculatedPanelWidth = Math.min(160, scaledWidth - calculatedStartX - 10);
 
-            if (panelWidth < 60) {
-                startX = scaledWidth - 164;
-                panelWidth = 160;
+            if (calculatedPanelWidth < 60) {
+                calculatedStartX = scaledWidth - 164;
+                calculatedPanelWidth = 160;
             }
+
+            final int startX = calculatedStartX;
+            final int panelWidth = calculatedPanelWidth;
 
             panelActive = true;
 

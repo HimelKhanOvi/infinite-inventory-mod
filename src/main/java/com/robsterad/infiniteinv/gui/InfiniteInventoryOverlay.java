@@ -55,11 +55,13 @@ public class InfiniteInventoryOverlay {
     private static SortMode currentSort = SortMode.RECENT;
     private static int currentPage  = 0;
     private static int itemsPerPage = 1;
-    private static boolean showTooltips = false;
+    private static boolean showTooltips = true;
     private static double lastMouseX = -1;
     private static double lastMouseY = -1;
 
-    private static final int COLLAPSE_W = 20;
+    private static final int PANEL_WIDTH = 150;
+    private static final int COLUMNS = 7;
+    private static final int SLOT_SIZE = 20;
 
     public static void applyUiPrefs(boolean visible, String sortModeName, boolean tooltips) {
         panelVisible = visible;
@@ -72,6 +74,7 @@ public class InfiniteInventoryOverlay {
         currentPage = 0;
         if (collapseBtn != null) collapseBtn.setMessage(Component.literal(panelVisible ? "◀" : "▶"));
         if (sortButton != null) sortButton.setMessage(Component.literal(currentSort.shortLabel));
+        if (tooltipBtn != null) tooltipBtn.setMessage(Component.literal(showTooltips ? "T:ON" : "T:OFF"));
     }
 
     private static void sendUiPrefsUpdate() {
@@ -96,40 +99,25 @@ public class InfiniteInventoryOverlay {
             panelActive = false;
             if (!(screen instanceof AbstractContainerScreen<?>)) return;
 
-            AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
-            int calculatedStartX = acc.getLeftPos() + acc.getImageWidth() + 4;
-            int calculatedPanelWidth = Math.min(160, scaledWidth - calculatedStartX - 10);
-
-            if (calculatedPanelWidth < 60) {
-                calculatedStartX = scaledWidth - 164;
-                calculatedPanelWidth = 160;
-            }
-
-            final int startX = calculatedStartX;
-            final int panelWidth = calculatedPanelWidth;
-
             panelActive = true;
 
-            int bottomY = scaledHeight - 25;
-            int sortW = 20;
-            int toolW = 20;
+            int dummyX = scaledWidth - PANEL_WIDTH - 10;
+            int dummyY = 10;
 
-            int searchW = panelWidth - sortW - toolW - COLLAPSE_W - 6;
-
-            searchBox = new EditBox(client.font, startX, bottomY, searchW, 14, Component.literal(""));
+            searchBox = new EditBox(client.font, dummyX, dummyY, 70, 16, Component.literal(""));
             searchBox.setHint(Component.literal("Search..."));
 
             sortButton  = Button.builder(Component.literal(currentSort.shortLabel), b -> {})
-                    .pos(startX + searchW + 2, bottomY).size(sortW, 14).build();
-            tooltipBtn  = Button.builder(Component.literal("T"), b -> {})
-                    .pos(startX + searchW + sortW + 4, bottomY).size(toolW, 14).build();
+                    .pos(dummyX, dummyY).size(20, 16).build();
+            tooltipBtn  = Button.builder(Component.literal(showTooltips ? "T:ON" : "T:OFF"), b -> {})
+                    .pos(dummyX, dummyY).size(36, 16).build();
             collapseBtn = Button.builder(Component.literal(panelVisible ? "◀" : "▶"), b -> {})
-                    .pos(startX + searchW + sortW + toolW + 6, bottomY).size(COLLAPSE_W, 14).build();
+                    .pos(dummyX, dummyY).size(20, 16).build();
 
             prevPageBtn = Button.builder(Component.literal("<"), b -> {})
-                    .pos(startX, 10).size(20, 14).build();
+                    .pos(dummyX, dummyY).size(20, 16).build();
             nextPageBtn = Button.builder(Component.literal(">"), b -> {})
-                    .pos(startX + panelWidth - 20, 10).size(20, 14).build();
+                    .pos(dummyX, dummyY).size(20, 16).build();
 
             Screens.getButtons(screen).addAll(List.of(
                 searchBox, sortButton, tooltipBtn, collapseBtn, prevPageBtn, nextPageBtn
@@ -167,6 +155,7 @@ public class InfiniteInventoryOverlay {
 
                     if (tooltipBtn.isMouseOver(mx, my)) {
                         showTooltips = !showTooltips;
+                        tooltipBtn.setMessage(Component.literal(showTooltips ? "T:ON" : "T:OFF"));
                         sendUiPrefsUpdate();
                         return false;
                     }
@@ -181,7 +170,11 @@ public class InfiniteInventoryOverlay {
                     }
                 }
 
-                ItemStack hovered = findHoveredItemStack(mx, my, startX, panelWidth, scaledHeight);
+                AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) s;
+                int startX = acc.getLeftPos() + acc.getImageWidth() + 6;
+                int startY = acc.getTopPos();
+
+                ItemStack hovered = findHoveredItemStack(mx, my, startX, startY, scaledHeight - startY);
                 if (hovered != null) {
                     if (InfiniteInvConfig.INSTANCE.takeStack.matchesMouse(btn)) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
@@ -204,7 +197,11 @@ public class InfiniteInventoryOverlay {
                     return true;
                 }
 
-                ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, startX, panelWidth, scaledHeight);
+                AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) s;
+                int startX = acc.getLeftPos() + acc.getImageWidth() + 6;
+                int startY = acc.getTopPos();
+
+                ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, startX, startY, scaledHeight - startY);
                 if (hovered != null) {
                     if (InfiniteInvConfig.INSTANCE.takeStack.matchesKey(event.key(), event.scancode())) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
@@ -225,44 +222,64 @@ public class InfiniteInventoryOverlay {
         int scaledHeight = client.getWindow().getGuiScaledHeight();
 
         AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
-        int startX = acc.getLeftPos() + acc.getImageWidth() + 4;
-        int panelWidth = Math.min(160, scaledWidth - startX - 10);
-        if (panelWidth < 60) {
-            startX = scaledWidth - 164;
-            panelWidth = 160;
+        int vanillaLeft = acc.getLeftPos();
+        int vanillaWidth = acc.getImageWidth();
+        int vanillaTop = acc.getTopPos();
+        int vanillaHeight = acc.getImageHeight();
+
+        int startX = vanillaLeft + vanillaWidth + 6;
+        int startY = vanillaTop;
+        int panelHeight = Math.max(vanillaHeight, scaledHeight - startY - 10);
+
+        if (startX + PANEL_WIDTH > scaledWidth) {
+            startX = scaledWidth - PANEL_WIDTH - 6;
         }
 
         lastMouseX = mx;
         lastMouseY = my;
 
+        if (prevPageBtn != null) prevPageBtn.setPosition(startX, startY);
+        if (nextPageBtn != null) nextPageBtn.setPosition(startX + PANEL_WIDTH - 20, startY);
+
+        int bottomY = startY + panelHeight - 18;
+        if (searchBox != null) searchBox.setPosition(startX, bottomY);
+        if (sortButton != null) sortButton.setPosition(startX + 74, bottomY);
+        if (tooltipBtn != null) tooltipBtn.setPosition(startX + 96, bottomY);
+        if (collapseBtn != null) collapseBtn.setPosition(startX + 134, bottomY);
+
         if (!panelVisible) return;
 
-        ctx.fill(startX, 8, startX + panelWidth, scaledHeight - 8, 0x88222222);
+        ctx.fill(startX - 2, startY - 2, startX + PANEL_WIDTH + 2, startY + panelHeight, 0xDD181818);
 
         List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
-        int columns    = Math.max(1, (panelWidth - 8) / 18);
-        int rows       = (scaledHeight - 65) / 18;
-        itemsPerPage   = Math.max(1, columns * rows);
+        int gridStartY = startY + 22;
+        int gridHeight = bottomY - gridStartY - 4;
+        int rows = Math.max(1, gridHeight / SLOT_SIZE);
+        itemsPerPage = Math.max(1, COLUMNS * rows);
+
         int totalPages = Math.max(1, (int) Math.ceil((double) all.size() / itemsPerPage));
-        currentPage    = Math.min(currentPage, Math.max(0, totalPages - 1));
+        currentPage = Math.min(currentPage, Math.max(0, totalPages - 1));
 
         String pageText = (currentPage + 1) + "/" + totalPages;
-        ctx.drawCenteredString(client.font, pageText, startX + panelWidth / 2, 13, -1);
+        ctx.drawCenteredString(client.font, pageText, startX + PANEL_WIDTH / 2, startY + 4, 0xFFFFFFFF);
 
-        List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems(panelWidth, scaledHeight);
+        List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems(gridHeight);
         ItemStack hoveredItem = null;
 
         for (int i = 0; i < page.size(); i++) {
-            int ix = startX + 4 + (i % columns) * 18;
-            int iy = 28 + (i / columns) * 18;
+            int col = i % COLUMNS;
+            int row = i / COLUMNS;
+
+            int ix = startX + (col * SLOT_SIZE) + 2;
+            int iy = gridStartY + (row * SLOT_SIZE);
 
             ctx.renderItem(page.get(i).stack(), ix, iy);
 
             if (page.get(i).count() > 0) {
                 String countText = formatCount(page.get(i).count());
                 float scale = 0.65f;
-                int textW   = client.font.width(countText);
-                int textH   = client.font.lineHeight;
+                int textW = client.font.width(countText);
+                int textH = client.font.lineHeight;
 
                 float anchorX = ix + 16f;
                 float anchorY = iy + 16f;
@@ -270,7 +287,7 @@ public class InfiniteInventoryOverlay {
                 ctx.pose().pushMatrix();
                 ctx.pose().translate(anchorX, anchorY);
                 ctx.pose().scale(scale, scale);
-                ctx.drawString(client.font, countText, -textW, -textH, -1, false);
+                ctx.drawString(client.font, countText, -textW, -textH, 0xFFFFFFFF, true);
                 ctx.pose().popMatrix();
             }
 
@@ -282,7 +299,7 @@ public class InfiniteInventoryOverlay {
         if (sortButton != null && sortButton.isMouseOver(mx, my))
             ctx.setTooltipForNextFrame(client.font, Component.literal("Sort: " + currentSort.hoverName), mx, my);
         if (tooltipBtn != null && tooltipBtn.isMouseOver(mx, my))
-            ctx.setTooltipForNextFrame(client.font, Component.literal("Item Tooltips"), mx, my);
+            ctx.setTooltipForNextFrame(client.font, Component.literal("Toggle Tooltips"), mx, my);
         if (collapseBtn != null && collapseBtn.isMouseOver(mx, my))
             ctx.setTooltipForNextFrame(client.font, Component.literal(panelVisible ? "Hide panel" : "Show panel"), mx, my);
 
@@ -291,13 +308,19 @@ public class InfiniteInventoryOverlay {
         }
     }
 
-    private static ItemStack findHoveredItemStack(double mx, double my, int startX, int panelWidth, int scaledHeight) {
+    private static ItemStack findHoveredItemStack(double mx, double my, int startX, int startY, int availableHeight) {
         if (!panelVisible) return null;
-        List<SyncInventoryPayload.NetworkItemData> list = getProcessedItems(panelWidth, scaledHeight);
-        int columns = Math.max(1, (panelWidth - 8) / 18);
+        int gridStartY = startY + 22;
+        int bottomY = startY + availableHeight - 18;
+        int gridHeight = bottomY - gridStartY - 4;
+
+        List<SyncInventoryPayload.NetworkItemData> list = getProcessedItems(gridHeight);
         for (int i = 0; i < list.size(); i++) {
-            int x = startX + 4 + (i % columns) * 18;
-            int y = 28 + (i / columns) * 18;
+            int col = i % COLUMNS;
+            int row = i / COLUMNS;
+            int x = startX + (col * SLOT_SIZE) + 2;
+            int y = gridStartY + (row * SLOT_SIZE);
+
             if (mx >= x && mx < x + 18 && my >= y && my < y + 18) {
                 return list.get(i).stack();
             }
@@ -338,11 +361,10 @@ public class InfiniteInventoryOverlay {
         return list;
     }
 
-    private static List<SyncInventoryPayload.NetworkItemData> getProcessedItems(int panelWidth, int scaledHeight) {
+    private static List<SyncInventoryPayload.NetworkItemData> getProcessedItems(int gridHeight) {
         List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
-        int columns  = Math.max(1, (panelWidth - 8) / 18);
-        int rows     = (scaledHeight - 65) / 18;
-        itemsPerPage = Math.max(1, columns * rows);
+        int rows = Math.max(1, gridHeight / SLOT_SIZE);
+        itemsPerPage = Math.max(1, COLUMNS * rows);
         int start = currentPage * itemsPerPage;
         if (start >= all.size()) return new ArrayList<>();
         return all.subList(start, Math.min(start + itemsPerPage, all.size()));

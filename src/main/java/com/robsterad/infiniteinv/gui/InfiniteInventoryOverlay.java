@@ -1,7 +1,6 @@
 package com.robsterad.infiniteinv.gui;
 
 import com.robsterad.infiniteinv.config.InfiniteInvConfig;
-import com.robsterad.infiniteinv.mixin.AbstractContainerScreenAccessor;
 import com.robsterad.infiniteinv.network.ExtractItemPayload;
 import com.robsterad.infiniteinv.network.SyncInventoryPayload;
 import com.robsterad.infiniteinv.network.UpdateUiPrefsPayload;
@@ -103,7 +102,9 @@ public class InfiniteInventoryOverlay {
                 double my = event.y();
                 int btn = event.button();
 
-                int[] bounds = getPanelBounds((AbstractContainerScreen<?>) s);
+                if (!(s instanceof AbstractContainerScreen<?> containerScreen)) return true;
+
+                int[] bounds = calculateBounds(containerScreen);
                 int startX = bounds[0];
                 int startY = bounds[1];
                 int panelHeight = bounds[3];
@@ -172,7 +173,8 @@ public class InfiniteInventoryOverlay {
                     return true;
                 }
 
-                int[] bounds = getPanelBounds((AbstractContainerScreen<?>) s);
+                if (!(s instanceof AbstractContainerScreen<?> containerScreen)) return true;
+                int[] bounds = calculateBounds(containerScreen);
                 ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, bounds[0], bounds[1], bounds[2], bounds[3]);
                 if (hovered != null) {
                     if (InfiniteInvConfig.INSTANCE.takeStack.matchesKey(event.key(), event.scancode())) {
@@ -188,32 +190,32 @@ public class InfiniteInventoryOverlay {
         });
     }
 
-    private static int[] getPanelBounds(AbstractContainerScreen<?> screen) {
+    private static int[] calculateBounds(int left, int top, int width, int height) {
         Minecraft client = Minecraft.getInstance();
         int scaledWidth = client.getWindow().getGuiScaledWidth();
         int scaledHeight = client.getWindow().getGuiScaledHeight();
 
-        AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
-        int left = acc.getLeftPos();
-        int width = acc.getImageWidth();
-        int top = acc.getTopPos();
-        int height = acc.getImageHeight();
-
-        int startX = (left <= 0 || width <= 0) ? (scaledWidth / 2) + 88 : left + width + 4;
-        int startY = (top <= 0) ? (scaledHeight - 166) / 2 : top;
-        int panelHeight = (height <= 0) ? 166 : height;
+        int pWidth = (width <= 0) ? 176 : width;
+        int pHeight = (height <= 0) ? 166 : height;
+        
+        int startX = (left <= 0) ? (scaledWidth - pWidth) / 2 + pWidth + 4 : left + pWidth + 4;
+        int startY = (top <= 0) ? (scaledHeight - pHeight) / 2 : top;
 
         if (startX + PANEL_WIDTH > scaledWidth) {
             startX = scaledWidth - PANEL_WIDTH - 2;
         }
 
-        return new int[]{startX, startY, PANEL_WIDTH, panelHeight};
+        return new int[]{startX, startY, PANEL_WIDTH, pHeight};
     }
 
-    public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta) {
+    private static int[] calculateBounds(AbstractContainerScreen<?> screen) {
+        return calculateBounds(screen.getGuiLeft(), screen.getGuiTop(), screen.getXSize(), screen.getYSize());
+    }
+
+    public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta, int leftPos, int topPos, int imageWidth, int imageHeight) {
         Minecraft client = Minecraft.getInstance();
 
-        int[] bounds = getPanelBounds(screen);
+        int[] bounds = calculateBounds(leftPos, topPos, imageWidth, imageHeight);
         int startX = bounds[0];
         int startY = bounds[1];
         int panelWidth = bounds[2];
@@ -233,9 +235,11 @@ public class InfiniteInventoryOverlay {
             return;
         }
 
+        // GUI Overlay Panel Fill
         ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF000000);
         ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xF0101419);
 
+        // Header Buttons
         drawCustomButton(ctx, client, "<", startX + 4, startY + 4, 18, 14, mx, my);
         drawCustomButton(ctx, client, ">", startX + panelWidth - 22, startY + 4, 18, 14, mx, my);
 

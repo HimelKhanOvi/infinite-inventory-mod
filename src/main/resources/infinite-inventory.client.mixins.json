@@ -3,8 +3,8 @@
   "package": "com.robsterad.infiniteinv.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "HandledScreenMixin",
-    "ScreenMixin"
+    "AbstractContainerScreenAccessor",
+    "HandledScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

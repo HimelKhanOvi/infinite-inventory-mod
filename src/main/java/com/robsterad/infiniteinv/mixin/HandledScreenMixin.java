@@ -17,7 +17,7 @@ public class HandledScreenMixin {
             AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
             InfiniteInventoryOverlay.renderOverlay(screen, guiGraphics, mouseX, mouseY, delta);
         } catch (Throwable t) {
-            // Defensive catch to prevent hard startup/runtime game crashes
+            // Defensive execution to prevent game crashes
         }
     }
 }

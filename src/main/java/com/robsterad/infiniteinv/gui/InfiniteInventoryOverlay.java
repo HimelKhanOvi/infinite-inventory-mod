@@ -2,7 +2,6 @@ package com.robsterad.infiniteinv.gui;
 
 import com.robsterad.infiniteinv.config.InfiniteInvConfig;
 import com.robsterad.infiniteinv.mixin.AbstractContainerScreenAccessor;
-import com.robsterad.infiniteinv.network.DepositItemPayload;
 import com.robsterad.infiniteinv.network.ExtractItemPayload;
 import com.robsterad.infiniteinv.network.SyncInventoryPayload;
 import com.robsterad.infiniteinv.network.UpdateUiPrefsPayload;
@@ -10,15 +9,12 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import org.lwjgl.glfw.GLFW;
 
@@ -29,6 +25,7 @@ import java.util.Locale;
 public class InfiniteInventoryOverlay {
 
     private static EditBox searchBox;
+    private static Button sortButton, prevPageBtn, nextPageBtn, tooltipBtn, collapseBtn;
     public static List<SyncInventoryPayload.NetworkItemData> cachedItems = new ArrayList<>();
 
     public static boolean panelVisible = true;
@@ -53,17 +50,14 @@ public class InfiniteInventoryOverlay {
     private static SortMode currentSort = SortMode.RECENT;
     private static int currentPage  = 0;
     private static int itemsPerPage = 1;
-    private static boolean showTooltips = true;
+    private static boolean showTooltips = false;
     private static double lastMouseX = -1;
     private static double lastMouseY = -1;
 
-    // Fixed 7 columns and 10 rows
-    private static final int COLUMNS = 7;
-    private static final int ROWS = 10;
-    private static final int SLOT_SIZE = 18;
-    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12;
+    private static final int COLLAPSE_W = 20;
 
     public static void applyUiPrefs(boolean visible, String sortModeName, boolean tooltips) {
+        panelVisible = visible;
         showTooltips = tooltips;
         try {
             currentSort = SortMode.valueOf(sortModeName);
@@ -71,19 +65,21 @@ public class InfiniteInventoryOverlay {
             currentSort = SortMode.RECENT;
         }
         currentPage = 0;
+        if (collapseBtn != null) collapseBtn.setMessage(Component.literal(panelVisible ? "◀" : "▶"));
+        if (sortButton != null) sortButton.setMessage(Component.literal(currentSort.shortLabel));
     }
 
     private static void sendUiPrefsUpdate() {
-        ClientPlayNetworking.send(new UpdateUiPrefsPayload(true, currentSort.name(), showTooltips));
+        ClientPlayNetworking.send(new UpdateUiPrefsPayload(panelVisible, currentSort.name(), showTooltips));
     }
 
     public static boolean isSearchFocused() {
         return searchBox != null && searchBox.isFocused();
     }
 
-    public static boolean onCharTyped(CharacterEvent event) {
+    public static boolean onCharTyped(char chr, int modifiers) {
         if (searchBox != null && searchBox.isFocused()) {
-            searchBox.charTyped(event);
+            searchBox.charTyped(chr, modifiers);
             currentPage = 0;
             return true;
         }
@@ -92,226 +88,187 @@ public class InfiniteInventoryOverlay {
 
     public static void register() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) return;
+            panelActive = false;
+            if (!(screen instanceof AbstractContainerScreen<?>)) return;
+
+            AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
+            int startX     = acc.getLeftPos() + acc.getImageWidth() + 5;
+            int panelWidth = scaledWidth - startX - 5;
+            if (panelWidth < 50) return;
 
             panelActive = true;
-            panelVisible = true;
 
-            searchBox = new EditBox(client.font, 0, 0, 70, 14, Component.literal(""));
+            int bottomY = scaledHeight - 25;
+            int sortW = 20;
+            int toolW = 20;
+
+            int searchW = panelWidth - sortW - toolW - COLLAPSE_W - 6;
+
+            searchBox = new EditBox(client.font, startX, bottomY, searchW, 14, Component.literal(""));
             searchBox.setHint(Component.literal("Search..."));
 
-            ScreenMouseEvents.allowMouseClick(screen).register((s, event) -> {
-                double mx = event.x();
-                double my = event.y();
-                int btn = event.button();
+            sortButton  = Button.builder(Component.literal(currentSort.shortLabel), b -> {})
+                    .pos(startX + searchW + 2, bottomY).size(sortW, 14).build();
+            tooltipBtn  = Button.builder(Component.literal("T"), b -> {})
+                    .pos(startX + searchW + sortW + 4, bottomY).size(toolW, 14).build();
+            collapseBtn = Button.builder(Component.literal(panelVisible ? "◀" : "▶"), b -> {})
+                    .pos(startX + searchW + sortW + toolW + 6, bottomY).size(COLLAPSE_W, 14).build();
 
-                int[] bounds = calculateBounds(containerScreen);
-                int startX = bounds[0];
-                int startY = bounds[1];
-                int panelHeight = bounds[3];
+            prevPageBtn = Button.builder(Component.literal("<"), b -> {})
+                    .pos(startX, 10).size(20, 14).build();
+            nextPageBtn = Button.builder(Component.literal(">"), b -> {})
+                    .pos(startX + panelWidth - 20, 10).size(20, 14).build();
 
-                int bottomY = startY + panelHeight - 18;
-
-                // Deposit item if clicking overlay with carried item
-                boolean isInsideOverlay = mx >= startX && mx <= startX + PANEL_WIDTH && my >= startY && my <= startY + panelHeight;
-                if (isInsideOverlay && client.player != null) {
-                    ItemStack carried = client.player.containerMenu.getCarried();
-                    if (!carried.isEmpty()) {
-                        ClientPlayNetworking.send(new DepositItemPayload(carried.copy()));
-                        return false;
-                    }
+            ScreenMouseEvents.allowMouseClick(screen).register((s, mx, my, btn) -> {
+                if (btn == 0 && collapseBtn.isMouseOver(mx, my)) {
+                    panelVisible = !panelVisible;
+                    collapseBtn.setMessage(Component.literal(panelVisible ? "◀" : "▶"));
+                    sendUiPrefsUpdate();
+                    return false;
                 }
 
+                if (!panelVisible) return true;
+
                 if (btn == 0) {
-                    if (searchBox != null && mx >= startX + 4 && mx <= startX + 74 && my >= bottomY && my <= bottomY + 14) {
+                    if (searchBox.isMouseOver(mx, my)) {
                         searchBox.setFocused(true);
+                        searchBox.mouseClicked(mx, my, 0);
                         return false;
                     }
-                    if (searchBox != null) searchBox.setFocused(false);
+                    searchBox.setFocused(false);
 
-                    if (mx >= startX + 78 && mx <= startX + 96 && my >= bottomY && my <= bottomY + 14) {
+                    if (sortButton.isMouseOver(mx, my)) {
                         currentSort = SortMode.values()[(currentSort.ordinal() + 1) % SortMode.values().length];
+                        sortButton.setMessage(Component.literal(currentSort.shortLabel));
                         currentPage = 0;
                         sendUiPrefsUpdate();
                         return false;
                     }
 
-                    if (mx >= startX + 100 && mx <= startX + 124 && my >= bottomY && my <= bottomY + 14) {
+                    if (tooltipBtn.isMouseOver(mx, my)) {
                         showTooltips = !showTooltips;
                         sendUiPrefsUpdate();
                         return false;
                     }
 
-                    if (mx >= startX + 4 && mx <= startX + 22 && my >= startY + 4 && my <= startY + 18) {
+                    if (prevPageBtn.isMouseOver(mx, my)) {
                         if (currentPage > 0) currentPage--;
                         return false;
                     }
-
-                    if (mx >= startX + PANEL_WIDTH - 22 && mx <= startX + PANEL_WIDTH - 4 && my >= startY + 4 && my <= startY + 18) {
+                    if (nextPageBtn.isMouseOver(mx, my)) {
                         currentPage++;
                         return false;
                     }
                 }
 
-                ItemStack hovered = findHoveredItemStack(mx, my, startX, startY, PANEL_WIDTH, panelHeight);
-                if (hovered != null && !hovered.isEmpty()) {
+                ItemStack hovered = findHoveredItemStack(mx, my, startX, panelWidth, scaledHeight);
+                if (hovered != null) {
                     if (InfiniteInvConfig.INSTANCE.takeStack.matchesMouse(btn)) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
-                        return false;
                     } else if (InfiniteInvConfig.INSTANCE.takeOne.matchesMouse(btn)) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, true));
-                        return false;
                     }
+                    return false;
                 }
 
                 return true;
             });
 
-            ScreenKeyboardEvents.allowKeyPress(screen).register((s, event) -> {
-                if (searchBox != null && searchBox.isFocused()) {
-                    if (event.key() == GLFW.GLFW_KEY_E || event.key() == GLFW.GLFW_KEY_BACKSPACE) {
-                        searchBox.keyPressed(event);
+            ScreenKeyboardEvents.allowKeyPress(screen).register((s, key, scancode, modifiers) -> {
+                if (!panelVisible) return true;
+                if (searchBox.isFocused()) {
+                    if (key == GLFW.GLFW_KEY_E || key == GLFW.GLFW_KEY_BACKSPACE) {
+                        searchBox.keyPressed(key, scancode, modifiers);
                         return false;
                     }
                     return true;
                 }
 
-                int[] bounds = calculateBounds(containerScreen);
-                ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, bounds[0], bounds[1], bounds[2], bounds[3]);
-                if (hovered != null && !hovered.isEmpty()) {
-                    if (InfiniteInvConfig.INSTANCE.takeStack.matchesKey(event.key(), event.scancode())) {
+                ItemStack hovered = findHoveredItemStack(lastMouseX, lastMouseY, startX, panelWidth, scaledHeight);
+                if (hovered != null) {
+                    if (InfiniteInvConfig.INSTANCE.takeStack.matchesKey(key, scancode)) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, false));
                         return false;
-                    } else if (InfiniteInvConfig.INSTANCE.takeOne.matchesKey(event.key(), event.scancode())) {
+                    } else if (InfiniteInvConfig.INSTANCE.takeOne.matchesKey(key, scancode)) {
                         ClientPlayNetworking.send(new ExtractItemPayload(hovered, true));
                         return false;
                     }
                 }
                 return true;
             });
+
+            ScreenEvents.afterRender(screen).register((s, ctx, mx, my, delta) -> {
+                lastMouseX = mx;
+                lastMouseY = my;
+
+                collapseBtn.render(ctx, mx, my, delta);
+
+                if (!panelVisible) return;
+
+                ctx.fill(startX, 8, scaledWidth - 5, scaledHeight - 8, 0x88222222);
+
+                searchBox.render(ctx, mx, my, delta);
+                sortButton.render(ctx, mx, my, delta);
+                tooltipBtn.render(ctx, mx, my, delta);
+                if (showTooltips) {
+                    int tx = tooltipBtn.getX(), ty = tooltipBtn.getY();
+                    int tw = tooltipBtn.getWidth(), th = tooltipBtn.getHeight();
+                    int outline = 0xFFFFFFFF;
+                    ctx.fill(tx, ty, tx + tw, ty + 1, outline);
+                    ctx.fill(tx, ty + th - 1, tx + tw, ty + th, outline);
+                    ctx.fill(tx, ty, tx + 1, ty + th, outline);
+                    ctx.fill(tx + tw - 1, ty, tx + tw, ty + th, outline);
+                }
+                prevPageBtn.render(ctx, mx, my, delta);
+                nextPageBtn.render(ctx, mx, my, delta);
+
+                List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
+                int columns    = Math.max(1, (panelWidth - 8) / 18);
+                int rows       = (scaledHeight - 65) / 18;
+                itemsPerPage   = Math.max(1, columns * rows);
+                int totalPages = Math.max(1, (int) Math.ceil((double) all.size() / itemsPerPage));
+                currentPage    = Math.min(currentPage, Math.max(0, totalPages - 1));
+
+                ctx.drawCenteredString(client.font,
+                        (currentPage + 1) + "/" + totalPages,
+                        startX + panelWidth / 2, 13, -1);
+
+                List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems(panelWidth, scaledHeight);
+                ItemStack hoveredItem = null;
+
+                for (int i = 0; i < page.size(); i++) {
+                    int ix = startX + 4 + (i % columns) * 18;
+                    int iy = 28 + (i / columns) * 18;
+
+                    ctx.renderItem(page.get(i).stack(), ix, iy);
+                    ctx.renderItemDecorations(client.font, page.get(i).stack(), ix, iy, formatCount(page.get(i).count()));
+
+                    if (showTooltips && mx >= ix && mx < ix + 18 && my >= iy && my < iy + 18) {
+                        hoveredItem = page.get(i).stack();
+                    }
+                }
+
+                if (sortButton.isMouseOver(mx, my))
+                    ctx.setTooltipForNextFrame(client.font, Component.literal("Sort: " + currentSort.hoverName), mx, my);
+                if (tooltipBtn.isMouseOver(mx, my))
+                    ctx.setTooltipForNextFrame(client.font, Component.literal("Item Tooltips"), mx, my);
+                if (collapseBtn.isMouseOver(mx, my))
+                    ctx.setTooltipForNextFrame(client.font, Component.literal(panelVisible ? "Hide panel" : "Show panel"), mx, my);
+
+                if (hoveredItem != null) {
+                    ctx.renderTooltip(client.font, hoveredItem, mx, my);
+                }
+            });
         });
     }
 
-    private static int[] calculateBounds(int left, int top, int width, int height) {
-        Minecraft client = Minecraft.getInstance();
-        int scaledWidth = client.getWindow().getGuiScaledWidth();
-        int pWidth = (width <= 0) ? 176 : width;
-        
-        int targetHeight = 22 + (ROWS * SLOT_SIZE) + 20;
-        int pHeight = Math.max(height <= 0 ? 166 : height, targetHeight);
-        
-        int startX = left + pWidth + 4;
-        int startY = top;
-
-        if (startX + PANEL_WIDTH > scaledWidth) {
-            startX = scaledWidth - PANEL_WIDTH - 2;
-        }
-
-        return new int[]{startX, startY, PANEL_WIDTH, pHeight};
-    }
-
-    private static int[] calculateBounds(AbstractContainerScreen<?> screen) {
-        AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
-        return calculateBounds(acc.getLeftPos(), acc.getTopPos(), acc.getImageWidth(), acc.getImageHeight());
-    }
-
-    public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta, int leftPos, int topPos, int imageWidth, int imageHeight) {
-        Minecraft client = Minecraft.getInstance();
-        panelActive = true;
-        panelVisible = true;
-
-        int[] bounds = calculateBounds(leftPos, topPos, imageWidth, imageHeight);
-        int startX = bounds[0];
-        int startY = bounds[1];
-        int panelWidth = bounds[2];
-        int panelHeight = bounds[3];
-
-        lastMouseX = mx;
-        lastMouseY = my;
-
-        int bottomY = startY + panelHeight - 18;
-
-        if (searchBox != null) {
-            searchBox.setPosition(startX + 4, bottomY);
-        }
-
-        // Draw background
-        ctx.fill(startX - 2, startY - 2, startX + panelWidth + 2, startY + panelHeight + 2, 0xFF000000);
-        ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF2A2E3D);
-        ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xFF141822);
-
-        // Page buttons
-        drawCustomButton(ctx, client, "<", startX + 4, startY + 4, 18, 14, mx, my);
-        drawCustomButton(ctx, client, ">", startX + panelWidth - 22, startY + 4, 18, 14, mx, my);
-
-        List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
-        int gridStartY = startY + 22;
-        itemsPerPage = COLUMNS * ROWS;
-
-        int totalPages = Math.max(1, (int) Math.ceil((double) all.size() / itemsPerPage));
-        currentPage = Math.min(currentPage, Math.max(0, totalPages - 1));
-
-        String pageText = (currentPage + 1) + "/" + totalPages;
-        ctx.drawString(client.font, pageText, startX + (panelWidth - client.font.width(pageText)) / 2, startY + 7, 0xFFFFFFFF, true);
-
-        if (searchBox != null) {
-            searchBox.render(ctx, mx, my, delta);
-        }
-        drawCustomButton(ctx, client, currentSort.shortLabel, startX + 78, bottomY, 18, 14, mx, my);
-        drawCustomButton(ctx, client, showTooltips ? "T:ON" : "T:OFF", startX + 100, bottomY, 24, 14, mx, my);
-
-        List<SyncInventoryPayload.NetworkItemData> page = getProcessedItems();
-        ItemStack hoveredItem = null;
-
-        for (int i = 0; i < page.size(); i++) {
-            int col = i % COLUMNS;
-            int row = i / COLUMNS;
-
-            int ix = startX + 6 + (col * SLOT_SIZE);
-            int iy = gridStartY + (row * SLOT_SIZE);
-
-            ctx.renderItem(page.get(i).stack(), ix, iy);
-
-            if (page.get(i).count() > 0) {
-                String countText = formatCount(page.get(i).count());
-                int textW = client.font.width(countText);
-                ctx.drawString(client.font, countText, ix + 17 - textW, iy + 9, 0xFFFFFFFF, true);
-            }
-
-            if (showTooltips && mx >= ix && mx < ix + 18 && my >= iy && my < iy + 18) {
-                hoveredItem = page.get(i).stack();
-            }
-        }
-
-        if (hoveredItem != null) {
-            ctx.setTooltipForNextFrame(client.font, hoveredItem, mx, my);
-        }
-    }
-
-    private static void drawCustomButton(GuiGraphics ctx, Minecraft client, String text, int x, int y, int w, int h, int mx, int my) {
-        boolean hovered = mx >= x && mx < x + w && my >= y && my < y + h;
-        int bgColor = hovered ? 0xFF4A5268 : 0xFF282E3E;
-        int borderColor = 0xFF5F6982;
-
-        ctx.fill(x, y, x + w, y + h, bgColor);
-        ctx.fill(x, y, x + w, y + 1, borderColor);
-        ctx.fill(x, y + h - 1, x + w, y + h, borderColor);
-        ctx.fill(x, y, x + 1, y + h, borderColor);
-        ctx.fill(x + w - 1, y, x + w, y + h, borderColor);
-
-        int textW = client.font.width(text);
-        ctx.drawString(client.font, text, x + (w - textW) / 2, y + (h - 8) / 2, 0xFFFFFFFF, true);
-    }
-
-    private static ItemStack findHoveredItemStack(double mx, double my, int startX, int startY, int panelWidth, int panelHeight) {
-        int gridStartY = startY + 22;
-        List<SyncInventoryPayload.NetworkItemData> list = getProcessedItems();
+    private static ItemStack findHoveredItemStack(double mx, double my, int startX, int panelWidth, int scaledHeight) {
+        if (!panelVisible) return null;
+        List<SyncInventoryPayload.NetworkItemData> list = getProcessedItems(panelWidth, scaledHeight);
+        int columns = Math.max(1, (panelWidth - 8) / 18);
         for (int i = 0; i < list.size(); i++) {
-            int col = i % COLUMNS;
-            int row = i / COLUMNS;
-            int x = startX + 6 + (col * SLOT_SIZE);
-            int y = gridStartY + (row * SLOT_SIZE);
-
+            int x = startX + 4 + (i % columns) * 18;
+            int y = 28 + (i / columns) * 18;
             if (mx >= x && mx < x + 18 && my >= y && my < y + 18) {
                 return list.get(i).stack();
             }
@@ -320,7 +277,6 @@ public class InfiniteInventoryOverlay {
     }
 
     private static List<SyncInventoryPayload.NetworkItemData> getSortedFilteredAll() {
-        if (searchBox == null) return new ArrayList<>();
         String q = searchBox.getValue().toLowerCase(Locale.ROOT);
         List<SyncInventoryPayload.NetworkItemData> list = new ArrayList<>();
         for (SyncInventoryPayload.NetworkItemData data : cachedItems) {
@@ -352,9 +308,11 @@ public class InfiniteInventoryOverlay {
         return list;
     }
 
-    private static List<SyncInventoryPayload.NetworkItemData> getProcessedItems() {
+    private static List<SyncInventoryPayload.NetworkItemData> getProcessedItems(int panelWidth, int scaledHeight) {
         List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
-        itemsPerPage = COLUMNS * ROWS;
+        int columns  = Math.max(1, (panelWidth - 8) / 18);
+        int rows     = (scaledHeight - 65) / 18;
+        itemsPerPage = Math.max(1, columns * rows);
         int start = currentPage * itemsPerPage;
         if (start >= all.size()) return new ArrayList<>();
         return all.subList(start, Math.min(start + itemsPerPage, all.size()));
@@ -371,8 +329,8 @@ public class InfiniteInventoryOverlay {
 
     private static boolean enchantmentMatches(ItemEnchantments enchants, String q) {
         if (enchants == null) return false;
-        for (var entry : enchants.entrySet()) {
-            if (Enchantment.getFullname(entry.getKey(), entry.getIntValue()).getString().toLowerCase(Locale.ROOT).contains(q))
+        for (var entry : enchantments.entrySet()) {
+            if (entry.getKey().value().description().getString().toLowerCase(Locale.ROOT).contains(q))
                 return true;
         }
         return false;

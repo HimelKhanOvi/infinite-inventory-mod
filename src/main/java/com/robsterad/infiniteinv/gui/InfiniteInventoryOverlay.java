@@ -1,6 +1,7 @@
 package com.robsterad.infiniteinv.gui;
 
 import com.robsterad.infiniteinv.config.InfiniteInvConfig;
+import com.robsterad.infiniteinv.mixin.AbstractContainerScreenAccessor;
 import com.robsterad.infiniteinv.network.ExtractItemPayload;
 import com.robsterad.infiniteinv.network.SyncInventoryPayload;
 import com.robsterad.infiniteinv.network.UpdateUiPrefsPayload;
@@ -209,7 +210,8 @@ public class InfiniteInventoryOverlay {
     }
 
     private static int[] calculateBounds(AbstractContainerScreen<?> screen) {
-        return calculateBounds(screen.getGuiLeft(), screen.getGuiTop(), screen.getXSize(), screen.getYSize());
+        AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
+        return calculateBounds(acc.getLeftPos(), acc.getTopPos(), acc.getImageWidth(), acc.getImageHeight());
     }
 
     public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta, int leftPos, int topPos, int imageWidth, int imageHeight) {
@@ -235,11 +237,9 @@ public class InfiniteInventoryOverlay {
             return;
         }
 
-        // GUI Overlay Panel Fill
         ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF000000);
         ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xF0101419);
 
-        // Header Buttons
         drawCustomButton(ctx, client, "<", startX + 4, startY + 4, 18, 14, mx, my);
         drawCustomButton(ctx, client, ">", startX + panelWidth - 22, startY + 4, 18, 14, mx, my);
 

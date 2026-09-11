@@ -2,9 +2,9 @@ name: Build Mod
 
 on:
   push:
-    branches: [ "26.2" ]
+    branches: [ "1.21.11" ]
   pull_request:
-    branches: [ "26.2" ]
+    branches: [ "1.21.11" ]
   workflow_dispatch:
 
 jobs:

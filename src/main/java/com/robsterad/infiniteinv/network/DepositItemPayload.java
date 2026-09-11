@@ -18,4 +18,3 @@ public record DepositItemPayload(ItemStack stack) implements CustomPacketPayload
         return ID;
     }
 }
-```[cite: 9]

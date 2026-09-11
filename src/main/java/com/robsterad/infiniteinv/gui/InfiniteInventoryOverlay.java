@@ -90,7 +90,6 @@ public class InfiniteInventoryOverlay {
 
     public static void register() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            panelActive = false;
             if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) return;
 
             panelActive = true;
@@ -212,6 +211,7 @@ public class InfiniteInventoryOverlay {
 
     public static void renderOverlay(AbstractContainerScreen<?> screen, GuiGraphics ctx, int mx, int my, float delta, int leftPos, int topPos, int imageWidth, int imageHeight) {
         Minecraft client = Minecraft.getInstance();
+        panelActive = true;
 
         int[] bounds = calculateBounds(leftPos, topPos, imageWidth, imageHeight);
         int startX = bounds[0];
@@ -367,7 +367,7 @@ public class InfiniteInventoryOverlay {
     private static boolean matchesQuery(ItemStack stack, String q) {
         if (q.isEmpty()) return true;
         if (stack.getHoverName().getString().toLowerCase(Locale.ROOT).contains(q)) return true;
-        if (stack.getItem().getName(stack).getString().toLowerCase(Locale.ROOT).contains(q)) return true;
+        if.getItem().getName(stack).getString().toLowerCase(Locale.ROOT).contains(q)) return true;
         if (enchantmentMatches(stack.get(DataComponents.STORED_ENCHANTMENTS), q)) return true;
         if (enchantmentMatches(stack.get(DataComponents.ENCHANTMENTS), q)) return true;
         return false;

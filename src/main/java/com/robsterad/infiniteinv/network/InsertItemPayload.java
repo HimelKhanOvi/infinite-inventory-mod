@@ -1,12 +1,12 @@
 package com.robsterad.infiniteinv.network;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
 
-public record InsertItemPayload(int slotId, boolean single) implements CustomPacketPayload {
+public record InsertItemPayload(ItemStack stack) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<InsertItemPayload> ID =
             new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("infinite-inventory", "insert_item"));
@@ -17,8 +17,7 @@ public record InsertItemPayload(int slotId, boolean single) implements CustomPac
     }
 
     public static final StreamCodec<RegistryFriendlyByteBuf, InsertItemPayload> CODEC = StreamCodec.composite(
-            ByteBufCodecs.VAR_INT, InsertItemPayload::slotId,
-            ByteBufCodecs.BOOL, InsertItemPayload::single,
+            ItemStack.STREAM_CODEC, InsertItemPayload::stack,
             InsertItemPayload::new
     );
 }

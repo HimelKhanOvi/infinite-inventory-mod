@@ -58,7 +58,7 @@ public class InfiniteInventoryOverlay {
 
     private static final int COLUMNS = 7;
     private static final int SLOT_SIZE = 18;
-    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12; // 138 pixels wide
+    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12; // 138 px
 
     public static void applyUiPrefs(boolean visible, String sortModeName, boolean tooltips) {
         panelVisible = visible;
@@ -110,7 +110,7 @@ public class InfiniteInventoryOverlay {
 
                 int bottomY = startY + panelHeight - 18;
 
-                // Collapse Button Click
+                // Collapse Button
                 if (btn == 0 && mx >= startX + 118 && mx <= startX + 134 && my >= bottomY && my <= bottomY + 14) {
                     panelVisible = !panelVisible;
                     sendUiPrefsUpdate();
@@ -120,14 +120,14 @@ public class InfiniteInventoryOverlay {
                 if (!panelVisible) return true;
 
                 if (btn == 0) {
-                    // Search Box Focus
+                    // Search Focus
                     if (searchBox != null && mx >= startX + 4 && mx <= startX + 64 && my >= bottomY && my <= bottomY + 14) {
                         searchBox.setFocused(true);
                         return false;
                     }
                     if (searchBox != null) searchBox.setFocused(false);
 
-                    // Sort Button Click
+                    // Sort Button
                     if (mx >= startX + 68 && mx <= startX + 86 && my >= bottomY && my <= bottomY + 14) {
                         currentSort = SortMode.values()[(currentSort.ordinal() + 1) % SortMode.values().length];
                         currentPage = 0;
@@ -135,20 +135,20 @@ public class InfiniteInventoryOverlay {
                         return false;
                     }
 
-                    // Tooltip Toggle Click
+                    // Tooltip Toggle Button
                     if (mx >= startX + 90 && mx <= startX + 114 && my >= bottomY && my <= bottomY + 14) {
                         showTooltips = !showTooltips;
                         sendUiPrefsUpdate();
                         return false;
                     }
 
-                    // Page Previous Click
+                    // Page Prev
                     if (mx >= startX + 4 && mx <= startX + 22 && my >= startY + 4 && my <= startY + 18) {
                         if (currentPage > 0) currentPage--;
                         return false;
                     }
 
-                    // Page Next Click
+                    // Page Next
                     if (mx >= startX + PANEL_WIDTH - 22 && mx <= startX + PANEL_WIDTH - 4 && my >= startY + 4 && my <= startY + 18) {
                         currentPage++;
                         return false;
@@ -235,12 +235,12 @@ public class InfiniteInventoryOverlay {
         }
 
         if (!panelVisible) {
-            // Collapse State Toggle Button
             drawCustomButton(ctx, client, "▶", startX, bottomY, 16, 14, mx, my);
             return;
         }
 
-        // Render Panel Dark Background
+        // Render Panel Dark Background (Forced Depth Layer Fix)
+        ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF000000);
         ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xF0101419);
 
         // Header Buttons (< 1/3 >)
@@ -257,9 +257,9 @@ public class InfiniteInventoryOverlay {
         currentPage = Math.min(currentPage, Math.max(0, totalPages - 1));
 
         String pageText = (currentPage + 1) + "/" + totalPages;
-        ctx.drawCenteredString(client.font, pageText, startX + panelWidth / 2, startY + 7, 0xFFFFFFFF);
+        ctx.drawString(client.font, pageText, startX + (panelWidth - client.font.width(pageText)) / 2, startY + 7, 0xFFFFFFFF, true);
 
-        // Bottom Controls (Search Box, Sort, Tooltip, Collapse)
+        // Bottom Controls
         if (searchBox != null) {
             searchBox.render(ctx, mx, my, delta);
         }
@@ -284,15 +284,11 @@ public class InfiniteInventoryOverlay {
                 String countText = formatCount(page.get(i).count());
                 float scale = 0.65f;
                 int textW = client.font.width(countText);
-                int textH = client.font.lineHeight;
-
-                float anchorX = ix + 16f;
-                float anchorY = iy + 16f;
 
                 ctx.pose().pushMatrix();
-                ctx.pose().translate(anchorX, anchorY);
-                ctx.pose().scale(scale, scale);
-                ctx.drawString(client.font, countText, -textW, -textH, 0xFFFFFFFF, true);
+                ctx.pose().translate(ix + 16, iy + 16, 200);
+                ctx.pose().scale(scale, scale, 1.0f);
+                ctx.drawString(client.font, countText, -textW, -client.font.lineHeight, 0xFFFFFFFF, true);
                 ctx.pose().popMatrix();
             }
 
@@ -308,8 +304,8 @@ public class InfiniteInventoryOverlay {
 
     private static void drawCustomButton(GuiGraphics ctx, Minecraft client, String text, int x, int y, int w, int h, int mx, int my) {
         boolean hovered = mx >= x && mx < x + w && my >= y && my < y + h;
-        int bgColor = hovered ? 0xFF555555 : 0xFF333333;
-        int borderColor = 0xFF888888;
+        int bgColor = hovered ? 0xFF555555 : 0xFF222222;
+        int borderColor = 0xFF777777;
 
         ctx.fill(x, y, x + w, y + h, bgColor);
         ctx.fill(x, y, x + w, y + 1, borderColor);
@@ -317,7 +313,8 @@ public class InfiniteInventoryOverlay {
         ctx.fill(x, y, x + 1, y + h, borderColor);
         ctx.fill(x + w - 1, y, x + w, y + h, borderColor);
 
-        ctx.drawCenteredString(client.font, text, x + w / 2, y + (h - 8) / 2, 0xFFFFFFFF);
+        int textW = client.font.width(text);
+        ctx.drawString(client.font, text, x + (w - textW) / 2, y + (h - 8) / 2, 0xFFFFFFFF, true);
     }
 
     private static ItemStack findHoveredItemStack(double mx, double my, int startX, int startY, int panelWidth, int panelHeight) {

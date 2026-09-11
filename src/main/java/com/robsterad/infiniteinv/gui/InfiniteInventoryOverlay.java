@@ -89,7 +89,7 @@ public class InfiniteInventoryOverlay {
     public static void register() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             panelActive = false;
-            if (!(screen instanceof AbstractContainerScreen<?>)) return;
+            if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) return;
 
             AbstractContainerScreenAccessor acc = (AbstractContainerScreenAccessor) screen;
             int startX     = acc.getLeftPos() + acc.getImageWidth() + 5;
@@ -107,59 +107,41 @@ public class InfiniteInventoryOverlay {
             searchBox = new EditBox(client.font, startX, bottomY, searchW, 14, Component.literal(""));
             searchBox.setHint(Component.literal("Search..."));
 
-            sortButton  = Button.builder(Component.literal(currentSort.shortLabel), b -> {})
-                    .pos(startX + searchW + 2, bottomY).size(sortW, 14).build();
-            tooltipBtn  = Button.builder(Component.literal("T"), b -> {})
-                    .pos(startX + searchW + sortW + 4, bottomY).size(toolW, 14).build();
-            collapseBtn = Button.builder(Component.literal(panelVisible ? "◀" : "▶"), b -> {})
-                    .pos(startX + searchW + sortW + toolW + 6, bottomY).size(COLLAPSE_W, 14).build();
+            sortButton  = Button.builder(Component.literal(currentSort.shortLabel), b -> {
+                currentSort = SortMode.values()[(currentSort.ordinal() + 1) % SortMode.values().length];
+                sortButton.setMessage(Component.literal(currentSort.shortLabel));
+                currentPage = 0;
+                sendUiPrefsUpdate();
+            }).pos(startX + searchW + 2, bottomY).size(sortW, 14).build();
 
-            prevPageBtn = Button.builder(Component.literal("<"), b -> {})
-                    .pos(startX, 10).size(20, 14).build();
-            nextPageBtn = Button.builder(Component.literal(">"), b -> {})
-                    .pos(startX + panelWidth - 20, 10).size(20, 14).build();
+            tooltipBtn  = Button.builder(Component.literal("T"), b -> {
+                showTooltips = !showTooltips;
+                sendUiPrefsUpdate();
+            }).pos(startX + searchW + sortW + 4, bottomY).size(toolW, 14).build();
+
+            collapseBtn = Button.builder(Component.literal(panelVisible ? "◀" : "▶"), b -> {
+                panelVisible = !panelVisible;
+                collapseBtn.setMessage(Component.literal(panelVisible ? "◀" : "▶"));
+                sendUiPrefsUpdate();
+            }).pos(startX + searchW + sortW + toolW + 6, bottomY).size(COLLAPSE_W, 14).build();
+
+            prevPageBtn = Button.builder(Component.literal("<"), b -> {
+                if (currentPage > 0) currentPage--;
+            }).pos(startX, 10).size(20, 14).build();
+
+            nextPageBtn = Button.builder(Component.literal(">"), b -> {
+                currentPage++;
+            }).pos(startX + panelWidth - 20, 10).size(20, 14).build();
+
+            containerScreen.addRenderableWidget(searchBox);
+            containerScreen.addRenderableWidget(sortButton);
+            containerScreen.addRenderableWidget(tooltipBtn);
+            containerScreen.addRenderableWidget(collapseBtn);
+            containerScreen.addRenderableWidget(prevPageBtn);
+            containerScreen.addRenderableWidget(nextPageBtn);
 
             ScreenMouseEvents.allowMouseClick(screen).register((s, mx, my, btn) -> {
-                if (btn == 0 && collapseBtn.isMouseOver(mx, my)) {
-                    panelVisible = !panelVisible;
-                    collapseBtn.setMessage(Component.literal(panelVisible ? "◀" : "▶"));
-                    sendUiPrefsUpdate();
-                    return false;
-                }
-
                 if (!panelVisible) return true;
-
-                if (btn == 0) {
-                    if (searchBox.isMouseOver(mx, my)) {
-                        searchBox.setFocused(true);
-                        searchBox.mouseClicked(mx, my, 0);
-                        return false;
-                    }
-                    searchBox.setFocused(false);
-
-                    if (sortButton.isMouseOver(mx, my)) {
-                        currentSort = SortMode.values()[(currentSort.ordinal() + 1) % SortMode.values().length];
-                        sortButton.setMessage(Component.literal(currentSort.shortLabel));
-                        currentPage = 0;
-                        sendUiPrefsUpdate();
-                        return false;
-                    }
-
-                    if (tooltipBtn.isMouseOver(mx, my)) {
-                        showTooltips = !showTooltips;
-                        sendUiPrefsUpdate();
-                        return false;
-                    }
-
-                    if (prevPageBtn.isMouseOver(mx, my)) {
-                        if (currentPage > 0) currentPage--;
-                        return false;
-                    }
-                    if (nextPageBtn.isMouseOver(mx, my)) {
-                        currentPage++;
-                        return false;
-                    }
-                }
 
                 ItemStack hovered = findHoveredItemStack(mx, my, startX, panelWidth, scaledHeight);
                 if (hovered != null) {
@@ -201,15 +183,17 @@ public class InfiniteInventoryOverlay {
                 lastMouseX = mx;
                 lastMouseY = my;
 
-                collapseBtn.render(ctx, mx, my, delta);
+                searchBox.setVisible(panelVisible);
+                sortButton.visible = panelVisible;
+                tooltipBtn.visible = panelVisible;
+                prevPageBtn.visible = panelVisible;
+                nextPageBtn.visible = panelVisible;
+                collapseBtn.visible = true;
 
                 if (!panelVisible) return;
 
                 ctx.fill(startX, 8, scaledWidth - 5, scaledHeight - 8, 0x88222222);
 
-                searchBox.render(ctx, mx, my, delta);
-                sortButton.render(ctx, mx, my, delta);
-                tooltipBtn.render(ctx, mx, my, delta);
                 if (showTooltips) {
                     int tx = tooltipBtn.getX(), ty = tooltipBtn.getY();
                     int tw = tooltipBtn.getWidth(), th = tooltipBtn.getHeight();
@@ -219,8 +203,6 @@ public class InfiniteInventoryOverlay {
                     ctx.fill(tx, ty, tx + 1, ty + th, outline);
                     ctx.fill(tx + tw - 1, ty, tx + tw, ty + th, outline);
                 }
-                prevPageBtn.render(ctx, mx, my, delta);
-                nextPageBtn.render(ctx, mx, my, delta);
 
                 List<SyncInventoryPayload.NetworkItemData> all = getSortedFilteredAll();
                 int columns    = Math.max(1, (panelWidth - 8) / 18);
@@ -249,14 +231,14 @@ public class InfiniteInventoryOverlay {
                 }
 
                 if (sortButton.isMouseOver(mx, my))
-                    ctx.setTooltipForNextFrame(client.font, Component.literal("Sort: " + currentSort.hoverName), mx, my);
+                    ctx.setTooltipForNextFrame(client.font, Component.literal("Sort: " + currentSort.hoverName), (int)mx, (int)my);
                 if (tooltipBtn.isMouseOver(mx, my))
-                    ctx.setTooltipForNextFrame(client.font, Component.literal("Item Tooltips"), mx, my);
+                    ctx.setTooltipForNextFrame(client.font, Component.literal("Item Tooltips"), (int)mx, (int)my);
                 if (collapseBtn.isMouseOver(mx, my))
-                    ctx.setTooltipForNextFrame(client.font, Component.literal(panelVisible ? "Hide panel" : "Show panel"), mx, my);
+                    ctx.setTooltipForNextFrame(client.font, Component.literal(panelVisible ? "Hide panel" : "Show panel"), (int)mx, (int)my);
 
                 if (hoveredItem != null) {
-                    ctx.renderTooltip(client.font, hoveredItem, mx, my);
+                    ctx.renderTooltip(client.font, hoveredItem, (int)mx, (int)my);
                 }
             });
         });

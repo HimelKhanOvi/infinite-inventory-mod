@@ -58,7 +58,7 @@ public class InfiniteInventoryOverlay {
 
     private static final int COLUMNS = 7;
     private static final int SLOT_SIZE = 18;
-    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12; // 138 px
+    private static final int PANEL_WIDTH = (COLUMNS * SLOT_SIZE) + 12;
 
     public static void applyUiPrefs(boolean visible, String sortModeName, boolean tooltips) {
         panelVisible = visible;

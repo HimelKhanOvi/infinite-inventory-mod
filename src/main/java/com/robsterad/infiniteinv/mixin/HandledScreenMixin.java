@@ -17,7 +17,14 @@ public abstract class HandledScreenMixin {
     @Shadow protected int imageWidth;
     @Shadow protected int imageHeight;
 
-    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet.minecraft/client/gui/screens/inventory/AbstractContainerScreen;renderTooltip(Lnet/minecraft/client/gui/GuiGraphics;II)V", shift = At.Shift.BEFORE))
+    @Inject(
+        method = "render",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet.minecraft.client.gui.screens.inventory.AbstractContainerScreen;renderTooltip(Lnet/minecraft/client/gui/GuiGraphics;II)V",
+            shift = At.Shift.BEFORE
+        )
+    )
     private void onRenderOverlayBeforeTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
         InfiniteInventoryOverlay.renderOverlay(screen, guiGraphics, mouseX, mouseY, delta, this.leftPos, this.topPos, this.imageWidth, this.imageHeight);

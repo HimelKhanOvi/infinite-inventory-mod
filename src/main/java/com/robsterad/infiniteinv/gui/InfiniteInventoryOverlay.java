@@ -233,9 +233,6 @@ public class InfiniteInventoryOverlay {
             return;
         }
 
-        ctx.pose().pushPose();
-        ctx.pose().translate(0, 0, 300);
-
         ctx.fill(startX - 2, startY - 2, startX + panelWidth + 2, startY + panelHeight + 2, 0xFF000000);
         ctx.fill(startX - 1, startY - 1, startX + panelWidth + 1, startY + panelHeight + 1, 0xFF2A2E3D);
         ctx.fill(startX, startY, startX + panelWidth, startY + panelHeight, 0xFF141822);
@@ -288,8 +285,6 @@ public class InfiniteInventoryOverlay {
         if (hoveredItem != null) {
             ctx.setTooltipForNextFrame(client.font, hoveredItem, mx, my);
         }
-
-        ctx.pose().popPose();
     }
 
     private static void drawCustomButton(GuiGraphics ctx, Minecraft client, String text, int x, int y, int w, int h, int mx, int my) {
